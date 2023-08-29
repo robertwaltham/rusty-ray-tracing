@@ -34,6 +34,13 @@ struct RenderImage {
     image: Handle<Image>,
 }
 
+#[derive(States, Debug, Default, Clone, Eq, PartialEq, Hash)]
+enum AppState {
+    #[default]
+    Waiting,
+    Running,
+}
+
 const SIZE: (u32, u32) = (512, 512);
 const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
@@ -43,13 +50,17 @@ const WORKGROUP_SIZE: u32 = 8;
 
 fn main() {
     App::new()
+        .add_state::<AppState>()
         .add_plugins(DefaultPlugins)
         .add_plugins(
             WorldInspectorPlugin::new().run_if(input_toggle_active(false, KeyCode::Escape)),
         )
         .add_plugins(ShaderUtilsPlugin)
         .add_plugins(ComputeShaderPlugin)
-        .add_systems(Update, button_interaction)
+        .add_systems(
+            Update,
+            button_interaction.run_if(in_state(AppState::Waiting)),
+        )
         .add_systems(Startup, (setup, setup_menu))
         .register_type::<RenderImage>()
         .run();
@@ -161,6 +172,7 @@ fn button_interaction(
         (&Interaction, &mut BackgroundColor, &mut ButtonComponent),
         (Changed<Interaction>, With<ButtonComponent>),
     >,
+    mut next_state: ResMut<NextState<AppState>>,
 ) {
     for (interaction, mut color, mut button) in &mut interaction_query {
         match *interaction {
@@ -173,7 +185,7 @@ fn button_interaction(
                 if button.pressed {
                     match button.button_type {
                         ButtonType::StartButton => {
-                            println!("pressed");
+                            next_state.set(AppState::Running);
                         }
                     }
                 }
@@ -200,6 +212,7 @@ impl Plugin for ComputeShaderPlugin {
             .insert_resource(TimeMeta {
                 buffer: None,
                 bind_group: None,
+                last_time: 0.,
             });
 
         let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
@@ -409,6 +422,7 @@ impl ExtractResource for ExtractedTime {
 struct TimeMeta {
     buffer: Option<Buffer>,
     bind_group: Option<BindGroup>,
+    last_time: f32,
 }
 
 // write the extracted time into the corresponding uniform buffer
