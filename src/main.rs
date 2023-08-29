@@ -52,6 +52,11 @@ enum ButtonType {
     StartButton,
 }
 
+#[derive(Resource, Reflect)]
+struct RenderImage {
+    image: Handle<Image>,
+}
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -62,10 +67,15 @@ fn main() {
         .add_system(button_interaction)
         .add_startup_system(setup_menu)
         .add_startup_system(setup)
+        .register_type::<RenderImage>()
         .run();
 }
 
-fn read_data(mut compute_worker: ResMut<AppComputeWorker<SimpleComputeWorker>>) {
+fn read_data(
+    mut compute_worker: ResMut<AppComputeWorker<SimpleComputeWorker>>,
+    mut images: ResMut<Assets<Image>>,
+    render_handle: Res<RenderImage>,
+) {
     if !compute_worker.ready() {
         return;
     };
@@ -74,7 +84,15 @@ fn read_data(mut compute_worker: ResMut<AppComputeWorker<SimpleComputeWorker>>) 
 
     compute_worker.write_slice("values", &result);
 
-    println!("got {:?}", result)
+    let image = images
+        .get_mut(&render_handle.image)
+        .expect("expected to find target image");
+
+    // test to see update
+    // let pixel = &[255_u8, 0, 0, 255];
+    // for current_pixel in image.data.chunks_exact_mut(pixel.len()) {
+    //     current_pixel.copy_from_slice(pixel);
+    // }
 }
 
 fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
@@ -98,7 +116,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 
     commands
         .spawn(SpriteBundle {
-            texture: image_handle,
+            texture: image_handle.clone(),
             sprite: Sprite {
                 color: HOVERED_BUTTON,
                 custom_size: Some(Vec2::new(512., 512.)),
@@ -107,6 +125,10 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
             ..default()
         })
         .insert(Name::new("Render Sprite"));
+
+    commands.insert_resource(RenderImage {
+        image: image_handle.clone(),
+    });
 }
 
 const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
