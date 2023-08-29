@@ -3,44 +3,11 @@
 use bevy::{
     input::common_conditions::input_toggle_active,
     prelude::*,
-    reflect::TypeUuid,
-    render::{render_resource::*, texture::*},
+    render::{extract_resource::ExtractResource, render_resource::*},
 };
-use bevy_app_compute::prelude::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
-#[derive(TypeUuid)]
-#[uuid = "2545ae14-a9bc-4f03-9ea4-4eb43d1075a7"]
-struct SimpleShader;
-
-impl ComputeShader for SimpleShader {
-    fn shader() -> ShaderRef {
-        "shaders/simple.wgsl".into()
-    }
-}
-
-#[derive(Resource)]
-struct SimpleComputeWorker;
-
-impl ComputeWorker for SimpleComputeWorker {
-    fn build(world: &mut World) -> AppComputeWorker<Self> {
-        let worker = AppComputeWorkerBuilder::new(world)
-            .add_uniform("uni", &5.)
-            .add_staging("values", &[1., 2., 3., 4.])
-            .add_pass::<SimpleShader>([4, 1, 1], &["uni", "values"])
-            .one_shot()
-            .build();
-
-        worker
-    }
-}
-
 pub struct MainMenu;
-
-#[derive(Resource)]
-pub struct MenuData {
-    menu: Entity,
-}
 
 #[derive(Component)]
 pub struct ButtonComponent {
@@ -52,7 +19,7 @@ enum ButtonType {
     StartButton,
 }
 
-#[derive(Resource, Reflect)]
+#[derive(Resource, Clone, Deref, ExtractResource, Reflect)]
 struct RenderImage {
     image: Handle<Image>,
 }
@@ -60,39 +27,13 @@ struct RenderImage {
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(AppComputePlugin)
-        .add_plugin(AppComputeWorkerPlugin::<SimpleComputeWorker>::default())
-        .add_plugin(WorldInspectorPlugin::new().run_if(input_toggle_active(false, KeyCode::Escape)))
-        .add_system(read_data)
-        .add_system(button_interaction)
-        .add_startup_system(setup_menu)
-        .add_startup_system(setup)
+        .add_plugins(
+            WorldInspectorPlugin::new().run_if(input_toggle_active(false, KeyCode::Escape)),
+        )
+        .add_systems(Update, button_interaction)
+        .add_systems(Startup, (setup, setup_menu))
         .register_type::<RenderImage>()
         .run();
-}
-
-fn read_data(
-    mut compute_worker: ResMut<AppComputeWorker<SimpleComputeWorker>>,
-    mut images: ResMut<Assets<Image>>,
-    render_handle: Res<RenderImage>,
-) {
-    if !compute_worker.ready() {
-        return;
-    };
-
-    let result: Vec<f32> = compute_worker.read_vec("values");
-
-    compute_worker.write_slice("values", &result);
-
-    let image = images
-        .get_mut(&render_handle.image)
-        .expect("expected to find target image");
-
-    // test to see update
-    // let pixel = &[255_u8, 0, 0, 255];
-    // for current_pixel in image.data.chunks_exact_mut(pixel.len()) {
-    //     current_pixel.copy_from_slice(pixel);
-    // }
 }
 
 fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
@@ -146,37 +87,30 @@ fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .insert(Name::new("Start Render"));
 
-    let menu_entity = commands
+    commands
         .spawn(NodeBundle {
             style: Style {
                 // center button
                 display: Display::Flex,
-                size: Size {
-                    width: Val::Percent(20.),
-                    height: Val::Percent(100.),
-                },
+                width: Val::Percent(20.),
+                height: Val::Percent(100.),
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::Center,
                 align_content: AlignContent::Center,
                 align_items: AlignItems::Center,
-                gap: Size {
-                    width: Val::Px(10.),
-                    height: Val::Px(10.),
-                },
+                column_gap: Val::Px(10.),
+                row_gap: Val::Px(10.),
                 ..default()
             },
             background_color: MENU_BG.into(),
             ..default()
         })
         .add_child(start_button)
-        .insert(Name::new("Main Menu"))
-        .id();
-    commands.insert_resource(MenuData { menu: menu_entity });
+        .insert(Name::new("Main Menu"));
 }
 
 fn spawn_button(
     commands: &mut Commands,
-    // asset_server: &AssetServer,
     text: &str,
     color: Color,
     asset_server: &Res<AssetServer>,
@@ -184,10 +118,8 @@ fn spawn_button(
     commands
         .spawn(ButtonBundle {
             style: Style {
-                size: Size {
-                    width: Val::Px(120.),
-                    height: Val::Px(65.),
-                },
+                width: Val::Px(120.),
+                height: Val::Px(65.),
                 // horizontally center child text
                 justify_content: JustifyContent::Center,
                 // vertically center child text
@@ -216,11 +148,10 @@ fn button_interaction(
         (&Interaction, &mut BackgroundColor, &mut ButtonComponent),
         (Changed<Interaction>, With<ButtonComponent>),
     >,
-    mut compute_worker: ResMut<AppComputeWorker<SimpleComputeWorker>>,
 ) {
     for (interaction, mut color, mut button) in &mut interaction_query {
         match *interaction {
-            Interaction::Clicked => {
+            Interaction::Pressed => {
                 *color = PRESSED_BUTTON.into();
                 button.pressed = true;
             }
@@ -230,7 +161,6 @@ fn button_interaction(
                     match button.button_type {
                         ButtonType::StartButton => {
                             println!("pressed");
-                            compute_worker.execute();
                         }
                     }
                 }
