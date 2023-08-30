@@ -10,6 +10,7 @@ pub struct ButtonComponent {
 enum ButtonType {
     StartButton,
 }
+
 pub struct Menu;
 impl Plugin for Menu {
     fn build(&self, app: &mut App) {
@@ -64,7 +65,7 @@ fn spawn_button(
     commands
         .spawn(ButtonBundle {
             style: Style {
-                width: Val::Px(120.),
+                width: Val::Px(200.),
                 height: Val::Px(65.),
                 // horizontally center child text
                 justify_content: JustifyContent::Center,
@@ -91,13 +92,20 @@ fn spawn_button(
 
 fn button_interaction(
     mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor, &mut ButtonComponent),
+        (
+            &Interaction,
+            &mut BackgroundColor,
+            &mut ButtonComponent,
+            &Children,
+        ),
         (Changed<Interaction>, With<ButtonComponent>),
     >,
+    mut text_query: Query<&mut Text>,
     mut next_state: ResMut<NextState<AppState>>,
     state: Res<State<AppState>>,
 ) {
-    for (interaction, mut color, mut button) in &mut interaction_query {
+    for (interaction, mut color, mut button, children) in &mut interaction_query {
+        let mut text = text_query.get_mut(children[0]).unwrap();
         match *interaction {
             Interaction::Pressed => {
                 *color = PRESSED_BUTTON.into();
@@ -105,11 +113,18 @@ fn button_interaction(
             }
             Interaction::Hovered => {
                 *color = HOVERED_BUTTON.into();
+
                 if button.pressed {
                     match button.button_type {
                         ButtonType::StartButton => match state.get() {
-                            AppState::Running => next_state.set(AppState::Waiting),
-                            AppState::Waiting => next_state.set(AppState::Running),
+                            AppState::Running => {
+                                text.sections[0].value = "Running".to_string();
+                                next_state.set(AppState::Waiting);
+                            }
+                            AppState::Waiting => {
+                                next_state.set(AppState::Running);
+                                text.sections[0].value = "Waiting".to_string();
+                            }
                         },
                     }
                 }
