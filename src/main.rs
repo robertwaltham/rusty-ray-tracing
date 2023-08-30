@@ -11,7 +11,7 @@ use bevy::{
         render_graph::{self, RenderGraph},
         render_resource::*,
         renderer::{RenderContext, RenderDevice, RenderQueue},
-        Render, RenderApp, RenderSet,
+        Extract, Render, RenderApp, RenderSet,
     },
 };
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
@@ -41,6 +41,11 @@ enum AppState {
     Running,
 }
 
+#[derive(Resource, Default)]
+struct RenderState {
+    state: AppState,
+}
+
 const SIZE: (u32, u32) = (512, 512);
 const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
@@ -57,10 +62,7 @@ fn main() {
         )
         .add_plugins(ShaderUtilsPlugin)
         .add_plugins(ComputeShaderPlugin)
-        .add_systems(
-            Update,
-            button_interaction.run_if(in_state(AppState::Waiting)),
-        )
+        .add_systems(Update, button_interaction)
         .add_systems(Startup, (setup, setup_menu))
         .register_type::<RenderImage>()
         .run();
@@ -173,6 +175,7 @@ fn button_interaction(
         (Changed<Interaction>, With<ButtonComponent>),
     >,
     mut next_state: ResMut<NextState<AppState>>,
+    state: Res<State<AppState>>,
 ) {
     for (interaction, mut color, mut button) in &mut interaction_query {
         match *interaction {
@@ -184,9 +187,10 @@ fn button_interaction(
                 *color = HOVERED_BUTTON.into();
                 if button.pressed {
                     match button.button_type {
-                        ButtonType::StartButton => {
-                            next_state.set(AppState::Running);
-                        }
+                        ButtonType::StartButton => match state.get() {
+                            AppState::Running => next_state.set(AppState::Waiting),
+                            AppState::Waiting => next_state.set(AppState::Running),
+                        },
                     }
                 }
             }
@@ -196,6 +200,12 @@ fn button_interaction(
             }
         }
     }
+}
+
+fn update_render(mut commands: Commands, state: Extract<Res<State<AppState>>>) {
+    commands.insert_resource(RenderState {
+        state: state.get().clone(),
+    });
 }
 
 pub struct ComputeShaderPlugin;
@@ -209,10 +219,14 @@ impl Plugin for ComputeShaderPlugin {
         render_app
             .add_systems(Render, queue_bind_group.in_set(RenderSet::Queue))
             .add_systems(Render, prepare_time.in_set(RenderSet::Prepare))
+            .add_systems(ExtractSchedule, update_render)
+            .insert_resource(RenderState {
+                state: AppState::Waiting,
+            })
             .insert_resource(TimeMeta {
                 buffer: None,
-                bind_group: None,
-                last_time: 0.,
+                _bind_group: None,
+                _last_time: 0.,
             });
 
         let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
@@ -373,7 +387,7 @@ impl render_graph::Node for ComputeShaderNode {
         let texture_bind_group = &world.resource::<RenderImageBindGroup>().0;
         let pipeline_cache = world.resource::<PipelineCache>();
         let pipeline = world.resource::<ComputeShaderPipeline>();
-
+        let state = &world.resource::<RenderState>().state;
         let mut pass = render_context
             .command_encoder()
             .begin_compute_pass(&ComputePassDescriptor::default());
@@ -391,11 +405,13 @@ impl render_graph::Node for ComputeShaderNode {
                 pass.dispatch_workgroups(SIZE.0 / WORKGROUP_SIZE, SIZE.1 / WORKGROUP_SIZE, 1);
             }
             ComputeShaderState::Update => {
-                let update_pipeline = pipeline_cache
-                    .get_compute_pipeline(pipeline.update_pipeline)
-                    .unwrap();
-                pass.set_pipeline(update_pipeline);
-                pass.dispatch_workgroups(SIZE.0 / WORKGROUP_SIZE, SIZE.1 / WORKGROUP_SIZE, 1);
+                if state == &AppState::Running {
+                    let update_pipeline = pipeline_cache
+                        .get_compute_pipeline(pipeline.update_pipeline)
+                        .unwrap();
+                    pass.set_pipeline(update_pipeline);
+                    pass.dispatch_workgroups(SIZE.0 / WORKGROUP_SIZE, SIZE.1 / WORKGROUP_SIZE, 1);
+                }
             }
         }
 
@@ -421,8 +437,8 @@ impl ExtractResource for ExtractedTime {
 #[derive(Resource)]
 struct TimeMeta {
     buffer: Option<Buffer>,
-    bind_group: Option<BindGroup>,
-    last_time: f32,
+    _bind_group: Option<BindGroup>,
+    _last_time: f32,
 }
 
 // write the extracted time into the corresponding uniform buffer
