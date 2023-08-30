@@ -410,7 +410,7 @@ impl render_graph::Node for ComputeShaderNode {
                         .get_compute_pipeline(pipeline.update_pipeline)
                         .unwrap();
                     pass.set_pipeline(update_pipeline);
-                    pass.dispatch_workgroups(SIZE.0 / WORKGROUP_SIZE, SIZE.1 / WORKGROUP_SIZE, 1);
+                    pass.dispatch_workgroups(1, 1, 1);
                 }
             }
         }
