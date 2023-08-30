@@ -1,4 +1,4 @@
-use crate::AppState;
+use crate::{render::Params, AppState};
 use bevy::prelude::*;
 
 #[derive(Component)]
@@ -14,8 +14,9 @@ enum ButtonType {
 pub struct Menu;
 impl Plugin for Menu {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, button_interaction)
-            .add_systems(Startup, setup_menu);
+        app.add_systems(Update, (button_interaction, update_params))
+            .add_systems(Startup, setup_menu)
+            .add_systems(OnEnter(AppState::Done), update_button);
     }
 }
 
@@ -23,6 +24,9 @@ const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
 const MENU_BG: Color = Color::rgb(0.1, 0.1, 0.1);
+
+#[derive(Component)]
+pub struct ParamText;
 
 fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
     let start_button = spawn_button(&mut commands, "Start", Color::RED, &asset_server);
@@ -54,6 +58,40 @@ fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .add_child(start_button)
         .insert(Name::new("Main Menu"));
+
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                right: Val::Percent(0.),
+                // center button
+                display: Display::Flex,
+                width: Val::Percent(20.),
+                height: Val::Percent(100.),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Center,
+                align_content: AlignContent::Center,
+                align_items: AlignItems::Center,
+                column_gap: Val::Px(10.),
+                row_gap: Val::Px(10.),
+                ..default()
+            },
+            background_color: MENU_BG.into(),
+            ..default()
+        })
+        .insert(Name::new("Right Menu"))
+        .with_children(|parent| {
+            parent
+                .spawn(TextBundle::from_section(
+                    "some valid text",
+                    TextStyle {
+                        font_size: 20.0,
+                        color: Color::RED,
+                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                    },
+                ))
+                .insert(ParamText);
+        });
 }
 
 fn spawn_button(
@@ -90,6 +128,22 @@ fn spawn_button(
         .id()
 }
 
+fn update_params(params: Res<Params>, mut text_query: Query<&mut Text, With<ParamText>>) {
+    text_query
+        .get_single_mut()
+        .expect("expected to have a text")
+        .sections[0]
+        .value = format!("{:?}", params);
+}
+
+fn update_button(query: Query<(&ButtonComponent, &Children)>, mut text_query: Query<&mut Text>) {
+    println!("update!!");
+    for (_button, children) in &query {
+        let mut text = text_query.get_mut(children[0]).unwrap();
+        text.sections[0].value = "Finished".to_string();
+    }
+}
+
 fn button_interaction(
     mut interaction_query: Query<
         (
@@ -123,7 +177,11 @@ fn button_interaction(
                             }
                             AppState::Waiting => {
                                 next_state.set(AppState::Running);
-                                text.sections[0].value = "Waiting".to_string();
+                                text.sections[0].value = "Rendering".to_string();
+                            }
+                            AppState::Done => {
+                                next_state.set(AppState::Running);
+                                text.sections[0].value = "Rendering".to_string();
                             }
                         },
                     }

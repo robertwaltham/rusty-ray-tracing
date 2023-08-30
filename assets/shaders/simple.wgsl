@@ -29,19 +29,7 @@ fn init(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_wo
 @compute @workgroup_size(8, 8, 1)
 fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_workgroups) num_workgroups: vec3<u32>) {
     var location = vec2<i32>(i32(invocation_id.x + u32(params.x)), i32(invocation_id.y + u32(params.y)));
-
-    // let size = textureDimensions(texture);
-    // let seconds = i32(time.time_since_startup * 30.) - 1;
-    // let wg_x = i32(num_workgroups.x);
-    // let wg_y = i32(num_workgroups.y);
-
-    // let x = (seconds * wg_x ) % i32(size.x) + location.x; 
-    // let y = (((seconds * wg_y) / i32(size.x)) * wg_y) % i32(size.y) + location.y;
-
-    // location.x = x;
-    // location.y = y;
-
-
+    
     let location_for_noise = vec3<f32>(f32(invocation_id.x) * 0.02, f32(invocation_id.y) * 0.02, f32(params.count) * 1.0);
     let noise = simplex_noise_3d(location_for_noise);
 

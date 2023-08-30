@@ -14,10 +14,12 @@ enum AppState {
     #[default]
     Waiting,
     Running,
+    Done,
 }
 
 const SIZE: (u32, u32) = (512, 512);
-const WORKGROUP_SIZE: u32 = 8;
+const WORKGROUP_SIZE: u32 = 32;
+const INIT_WORKGROUP_SIZE: u32 = 8;
 
 fn main() {
     App::new()

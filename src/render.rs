@@ -1,4 +1,4 @@
-use crate::{AppState, SIZE, WORKGROUP_SIZE};
+use crate::{AppState, INIT_WORKGROUP_SIZE, SIZE, WORKGROUP_SIZE};
 
 use bevy::{
     core::Zeroable,
@@ -38,11 +38,11 @@ enum ComputeShaderState {
     ShaderType, Pod, Zeroable, Clone, Copy, Resource, Reflect, ExtractResource, Default, Debug,
 )]
 #[repr(C)]
-struct Params {
-    count: i32,
-    size: i32,
-    x: i32,
-    y: i32,
+pub struct Params {
+    pub count: i32,
+    pub size: i32,
+    pub x: i32,
+    pub y: i32,
 }
 
 #[derive(Resource, Debug)]
@@ -59,7 +59,13 @@ impl Plugin for ComputeShaderPlugin {
         ))
         .register_type::<RenderImage>()
         .register_type::<Params>()
-        .insert_resource(Params::default());
+        .insert_resource(Params {
+            count: 0,
+            size: WORKGROUP_SIZE as i32,
+            x: -(WORKGROUP_SIZE as i32),
+            y: 0,
+        })
+        .add_systems(Update, update_params.run_if(in_state(AppState::Running)));
 
         let render_app = app.sub_app_mut(RenderApp);
 
@@ -90,6 +96,23 @@ fn update_render(mut commands: Commands, state: Extract<Res<State<AppState>>>) {
     commands.insert_resource(RenderState {
         state: state.get().clone(),
     });
+}
+
+fn update_params(mut params: ResMut<Params>, mut next_state: ResMut<NextState<AppState>>) {
+    params.x += WORKGROUP_SIZE as i32;
+
+    if params.x >= SIZE.0 as i32 {
+        params.y += WORKGROUP_SIZE as i32;
+    }
+    params.x = params.x % SIZE.0 as i32;
+
+    params.count += 1;
+    if params.count > (SIZE.0 * SIZE.1) as i32 / (WORKGROUP_SIZE * WORKGROUP_SIZE) as i32 {
+        next_state.set(AppState::Done);
+        params.x = -(WORKGROUP_SIZE as i32);
+        params.y = 0;
+        params.count = 0;
+    }
 }
 
 #[derive(Resource)]
@@ -245,7 +268,11 @@ impl render_graph::Node for ComputeShaderNode {
                     .get_compute_pipeline(pipeline.init_pipeline)
                     .unwrap();
                 pass.set_pipeline(init_pipeline);
-                pass.dispatch_workgroups(SIZE.0 / WORKGROUP_SIZE, SIZE.1 / WORKGROUP_SIZE, 1);
+                pass.dispatch_workgroups(
+                    SIZE.0 / INIT_WORKGROUP_SIZE,
+                    SIZE.1 / INIT_WORKGROUP_SIZE,
+                    1,
+                );
             }
             ComputeShaderState::Update => {
                 if state == &AppState::Running {
@@ -253,7 +280,7 @@ impl render_graph::Node for ComputeShaderNode {
                         .get_compute_pipeline(pipeline.update_pipeline)
                         .unwrap();
                     pass.set_pipeline(update_pipeline);
-                    pass.dispatch_workgroups(1, 1, 1);
+                    pass.dispatch_workgroups(4, 4, 1);
                 }
             }
         }
