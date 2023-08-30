@@ -2985,6 +2985,7 @@ dependencies = [
  "bevy",
  "bevy-inspector-egui",
  "bevy_shader_utils",
+ "bytemuck",
 ]
 
 [[package]]

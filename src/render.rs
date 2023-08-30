@@ -1,16 +1,18 @@
 use crate::{AppState, SIZE, WORKGROUP_SIZE};
 
 use bevy::{
+    core::Zeroable,
     prelude::*,
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_asset::RenderAssets,
         render_graph::{self, RenderGraph},
         render_resource::*,
-        renderer::{RenderContext, RenderDevice, RenderQueue},
+        renderer::{RenderContext, RenderDevice, RenderQueue /*, RenderQueue */},
         Extract, Render, RenderApp, RenderSet,
     },
 };
+use bytemuck::{bytes_of, Pod};
 use std::borrow::Cow;
 
 #[derive(Resource, Clone, Deref, ExtractResource, Reflect)]
@@ -32,34 +34,43 @@ enum ComputeShaderState {
     Update,
 }
 
-#[derive(Resource)]
-struct TimeMeta {
+#[derive(
+    ShaderType, Pod, Zeroable, Clone, Copy, Resource, Reflect, ExtractResource, Default, Debug,
+)]
+#[repr(C)]
+struct Params {
+    count: i32,
+    size: i32,
+    x: i32,
+    y: i32,
+}
+
+#[derive(Resource, Debug)]
+struct ParamsBuffer {
     buffer: Option<Buffer>,
-    _bind_group: Option<BindGroup>,
-    _last_time: f32,
 }
 
 pub struct ComputeShaderPlugin;
 impl Plugin for ComputeShaderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(ExtractResourcePlugin::<RenderImage>::default())
-            .add_plugins(ExtractResourcePlugin::<ExtractedTime>::default())
-            .register_type::<RenderImage>();
+        app.add_plugins((
+            ExtractResourcePlugin::<RenderImage>::default(),
+            ExtractResourcePlugin::<Params>::default(),
+        ))
+        .register_type::<RenderImage>()
+        .register_type::<Params>()
+        .insert_resource(Params::default());
 
         let render_app = app.sub_app_mut(RenderApp);
 
         render_app
             .add_systems(Render, queue_bind_group.in_set(RenderSet::Queue))
-            .add_systems(Render, prepare_time.in_set(RenderSet::Prepare))
+            .add_systems(Render, prepare_params.in_set(RenderSet::Prepare))
             .add_systems(ExtractSchedule, update_render)
             .insert_resource(RenderState {
                 state: AppState::Waiting,
             })
-            .insert_resource(TimeMeta {
-                buffer: None,
-                _bind_group: None,
-                _last_time: 0.,
-            });
+            .insert_resource(ParamsBuffer { buffer: None });
 
         let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
         render_graph.add_node("game_of_life", ComputeShaderNode::default());
@@ -90,33 +101,36 @@ pub struct ComputeShaderPipeline {
 
 impl FromWorld for ComputeShaderPipeline {
     fn from_world(world: &mut World) -> Self {
-        let texture_bind_group_layout = world.resource::<RenderDevice>().create_bind_group_layout(
-            &BindGroupLayoutDescriptor {
-                label: None,
-                entries: &[
-                    BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: ShaderStages::COMPUTE,
-                        ty: BindingType::StorageTexture {
-                            access: StorageTextureAccess::ReadWrite,
-                            format: TextureFormat::Rgba8Unorm,
-                            view_dimension: TextureViewDimension::D2,
+        let texture_bind_group_layout =
+            world
+                .resource::<RenderDevice>()
+                .create_bind_group_layout(&BindGroupLayoutDescriptor {
+                    label: None,
+                    entries: &[
+                        BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: ShaderStages::COMPUTE,
+                            ty: BindingType::StorageTexture {
+                                access: StorageTextureAccess::ReadWrite,
+                                format: TextureFormat::Rgba8Unorm,
+                                view_dimension: TextureViewDimension::D2,
+                            },
+                            count: None,
                         },
-                        count: None,
-                    },
-                    BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: ShaderStages::COMPUTE,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: BufferSize::new(std::mem::size_of::<f32>() as u64),
+                        BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: ShaderStages::COMPUTE,
+                            ty: BindingType::Buffer {
+                                ty: BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: BufferSize::new(
+                                    std::mem::size_of::<Params>() as u64
+                                ),
+                            },
+                            count: None,
                         },
-                        count: None,
-                    },
-                ],
-            },
-        );
+                    ],
+                });
         let shader = world.resource::<AssetServer>().load("shaders/simple.wgsl");
         let pipeline_cache = world.resource_mut::<PipelineCache>();
         let init_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
@@ -150,7 +164,7 @@ fn queue_bind_group(
     gpu_images: Res<RenderAssets<Image>>,
     game_of_life_image: Res<RenderImage>,
     render_device: Res<RenderDevice>,
-    time_meta: ResMut<TimeMeta>,
+    params_buffer: Res<ParamsBuffer>,
 ) {
     let view = &gpu_images[&game_of_life_image.image];
     let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
@@ -163,7 +177,7 @@ fn queue_bind_group(
             },
             BindGroupEntry {
                 binding: 1,
-                resource: time_meta.buffer.as_ref().unwrap().as_entire_binding(),
+                resource: params_buffer.buffer.as_ref().unwrap().as_entire_binding(),
             },
         ],
     });
@@ -248,40 +262,22 @@ impl render_graph::Node for ComputeShaderNode {
     }
 }
 
-#[derive(Resource, Default)]
-struct ExtractedTime {
-    seconds_since_startup: f32,
-}
-
-impl ExtractResource for ExtractedTime {
-    type Source = Time;
-
-    fn extract_resource(time: &Self::Source) -> Self {
-        ExtractedTime {
-            seconds_since_startup: time.elapsed_seconds(),
-        }
-    }
-}
-
 // write the extracted time into the corresponding uniform buffer
-fn prepare_time(
-    time: Res<ExtractedTime>,
-    mut time_meta: ResMut<TimeMeta>,
+fn prepare_params(
+    params: Res<Params>,
+    mut params_buffer: ResMut<ParamsBuffer>,
     render_queue: Res<RenderQueue>,
     render_device: Res<RenderDevice>,
 ) {
-    if time_meta.buffer.is_none() {
-        time_meta.buffer = Some(render_device.create_buffer(&BufferDescriptor {
-            label: Some("time uniform buffer"),
-            size: std::mem::size_of::<f32>() as u64,
+    if params_buffer.buffer.is_none() {
+        params_buffer.buffer = Some(render_device.create_buffer(&BufferDescriptor {
+            label: Some("params buffer"),
+            size: std::mem::size_of::<Params>() as u64,
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         }));
     }
 
-    render_queue.write_buffer(
-        &time_meta.buffer.as_ref().unwrap(),
-        0,
-        bevy::core::cast_slice(&[time.seconds_since_startup]),
-    );
+    let data = bytes_of(params.as_ref());
+    render_queue.write_buffer(&params_buffer.buffer.as_ref().unwrap(), 0, data);
 }

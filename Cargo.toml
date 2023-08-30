@@ -17,3 +17,4 @@ opt-level = 3
 bevy = "0.11"
 bevy-inspector-egui = "*"
 bevy_shader_utils = "*"
+bytemuck = "*"
