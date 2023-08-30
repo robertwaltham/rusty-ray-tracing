@@ -133,7 +133,12 @@ fn update_params(params: Res<Params>, mut text_query: Query<&mut Text, With<Para
         .get_single_mut()
         .expect("expected to have a text")
         .sections[0]
-        .value = format!("{:?}", params);
+        .value = format!(
+        "count: {}\n loc: ({},{})",
+        params.count,
+        params.x.max(0),
+        params.y
+    );
 }
 
 fn update_button(query: Query<(&ButtonComponent, &Children)>, mut text_query: Query<&mut Text>) {
