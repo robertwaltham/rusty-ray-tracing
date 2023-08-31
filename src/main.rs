@@ -1,8 +1,4 @@
-//! Example showing how to execute compute shaders on demand
-
 use bevy::{prelude::*, render::render_resource::*};
-// use bevy_inspector_egui::quick::WorldInspectorPlugin;
-// // use bevy_shader_utils::ShaderUtilsPlugin;
 use menu::Menu;
 use render::{ComputeShaderPlugin, RenderImage};
 
@@ -22,20 +18,30 @@ const WORKGROUP_SIZE: u32 = 32;
 const INIT_WORKGROUP_SIZE: u32 = 8;
 
 fn main() {
-    App::new()
-        .add_state::<AppState>()
+    let mut app = App::new();
+    app.add_state::<AppState>()
         .add_plugins((DefaultPlugins, ComputeShaderPlugin, Menu))
-        // .add_plugins(
-        //     WorldInspectorPlugin::new().run_if(input_toggle_active(false, KeyCode::Escape)),
-        // )
-        .add_systems(Startup, setup)
-        .run();
+        .add_systems(Startup, setup);
+    add_egui_inspector(&mut app);
+    app.run();
+}
+
+#[cfg(target_arch = "wasm32")]
+#[allow(unused_variables, unused_mut)]
+fn add_egui_inspector(mut app: &App) {}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn add_egui_inspector(app: &mut App) {
+    use bevy::input::common_conditions::input_toggle_active;
+    use bevy_inspector_egui::quick::WorldInspectorPlugin;
+    app.add_plugins(
+        WorldInspectorPlugin::new().run_if(input_toggle_active(false, KeyCode::Escape)),
+    );
 }
 
 fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     commands.spawn(Camera2dBundle::default());
 
-    // This is the texture that will be rendered to.
     let mut image = Image::new_fill(
         Extent3d {
             width: SIZE.0,

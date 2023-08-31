@@ -44,6 +44,8 @@ bevy = { version = "0.11", default-features = false, features = [
     "tonemapping_luts",
     "default_font",
 ] }
-# bevy-inspector-egui = "*"
-# bevy_shader_utils = "*"
 bytemuck = "*"
+
+# bevy-inspector-egui imports default bevy features, which disables WebGPU support
+[target.'cfg(not(target_arch="wasm32"))'.dependencies]
+bevy-inspector-egui = "*"
