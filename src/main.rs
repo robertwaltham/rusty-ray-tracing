@@ -1,8 +1,8 @@
 //! Example showing how to execute compute shaders on demand
 
-use bevy::{input::common_conditions::input_toggle_active, prelude::*, render::render_resource::*};
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
-use bevy_shader_utils::ShaderUtilsPlugin;
+use bevy::{prelude::*, render::render_resource::*};
+// use bevy_inspector_egui::quick::WorldInspectorPlugin;
+// // use bevy_shader_utils::ShaderUtilsPlugin;
 use menu::Menu;
 use render::{ComputeShaderPlugin, RenderImage};
 
@@ -24,10 +24,10 @@ const INIT_WORKGROUP_SIZE: u32 = 8;
 fn main() {
     App::new()
         .add_state::<AppState>()
-        .add_plugins((DefaultPlugins, ShaderUtilsPlugin, ComputeShaderPlugin, Menu))
-        .add_plugins(
-            WorldInspectorPlugin::new().run_if(input_toggle_active(false, KeyCode::Escape)),
-        )
+        .add_plugins((DefaultPlugins, ComputeShaderPlugin, Menu))
+        // .add_plugins(
+        //     WorldInspectorPlugin::new().run_if(input_toggle_active(false, KeyCode::Escape)),
+        // )
         .add_systems(Startup, setup)
         .run();
 }

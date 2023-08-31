@@ -8,7 +8,7 @@ use bevy::{
         render_asset::RenderAssets,
         render_graph::{self, RenderGraph},
         render_resource::*,
-        renderer::{RenderContext, RenderDevice, RenderQueue /*, RenderQueue */},
+        renderer::{RenderContext, RenderDevice, RenderQueue},
         Extract, Render, RenderApp, RenderSet,
     },
 };
@@ -124,6 +124,11 @@ pub struct ComputeShaderPipeline {
 
 impl FromWorld for ComputeShaderPipeline {
     fn from_world(world: &mut World) -> Self {
+        println!(
+            "{:?}",
+            world.resource::<RenderDevice>().wgpu_device().limits()
+        );
+
         let texture_bind_group_layout =
             world
                 .resource::<RenderDevice>()
@@ -134,7 +139,7 @@ impl FromWorld for ComputeShaderPipeline {
                             binding: 0,
                             visibility: ShaderStages::COMPUTE,
                             ty: BindingType::StorageTexture {
-                                access: StorageTextureAccess::ReadWrite,
+                                access: StorageTextureAccess::WriteOnly,
                                 format: TextureFormat::Rgba8Unorm,
                                 view_dimension: TextureViewDimension::D2,
                             },
