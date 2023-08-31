@@ -53,16 +53,7 @@ fn ray_colour(ray: Ray) -> vec4<f32> {
     return vec4<f32>(rgb, 1.);
 }
 
-// bool hit_sphere(const point3& center, double radius, const ray& r) {
-//     vec3 oc = r.origin() - center;
-//     auto a = dot(r.direction(), r.direction());
-//     auto b = 2.0 * dot(oc, r.direction());
-//     auto c = dot(oc, oc) - radius*radius;
-//     auto discriminant = b*b - 4*a*c;
-//     return (discriminant >= 0);
-// }
-
-fn hit_sphere(sphere: Sphere, ray: Ray) -> bool {
+fn hit_sphere(sphere: Sphere, ray: Ray) -> f32 {
 
     let oc = ray.origin - sphere.center;
     let a = dot(ray.direction, ray.direction);
@@ -70,7 +61,11 @@ fn hit_sphere(sphere: Sphere, ray: Ray) -> bool {
     let c = dot(oc, oc) - sphere.radius * sphere.radius;
     let discriminant = b * b - 4. * a * c;
 
-    return discriminant >= 0.;
+    if discriminant < 0. {
+        return -1.;
+    } else {
+        return abs((-b - sqrt(discriminant)) / (2.0 * a));
+    }
 }
 
 
@@ -95,13 +90,26 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_
     let ray_direction = pixel_center - camera.camera_center;
     let ray = Ray(camera.camera_center, ray_direction);
 
-    let sphere = Sphere(vec3<f32>(0., 0., -1.), 0.5, vec4<f32>(1., 0., 0., 1.));
+    let sphere = Sphere(vec3<f32>(-0.5, 0., -1.), 0.5, vec4<f32>(1., 0., 0., 1.));
+    let sphere2 = Sphere(vec3<f32>(0.5, 0., -1.), 0.25, vec4<f32>(1., 0., 0., 1.));
 
     var color = ray_colour(ray);
 
-    if hit_sphere(sphere, ray) {
-        color = sphere.color;
+    let hit = hit_sphere(sphere, ray);
+    if hit > 0. {
+        let n = normalize(at(ray, hit) - vec3(0., 0., -1.));
+        let normal_color = 0.5 * (n + 1.);
+        color = vec4<f32>(normal_color, 1.);
     }
+
+
+    let hit2 = hit_sphere(sphere2, ray);
+    if hit2 > 0. {
+        let n = normalize(at(ray, hit2) - vec3(0., 0., -1.));
+        let normal_color = 0.5 * (n + 1.);
+        color = vec4<f32>(normal_color, 1.);
+    }
+
 
 
     storageBarrier();
