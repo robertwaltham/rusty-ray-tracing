@@ -50,6 +50,28 @@ struct ParamsBuffer {
     buffer: Option<Buffer>,
 }
 
+#[derive(
+    ShaderType, Pod, Zeroable, Clone, Copy, Resource, Reflect, ExtractResource, Default, Debug,
+)]
+#[repr(C)]
+pub struct Camera {
+    focal_length: f32,
+    viewport_width: f32,
+    viewport_height: f32,
+    camera_center: Vec3,
+    viewport_u: Vec3,
+    viewport_v: Vec3,
+    pixel_delta_u: Vec3,
+    pixel_delta_v: Vec3,
+    viewport_upper_left: Vec3,
+    pixel00_loc: Vec3,
+}
+
+#[derive(Resource, Debug)]
+struct CameraBuffer {
+    buffer: Option<Buffer>,
+}
+
 pub struct ComputeShaderPlugin;
 impl Plugin for ComputeShaderPlugin {
     fn build(&self, app: &mut App) {
@@ -65,6 +87,7 @@ impl Plugin for ComputeShaderPlugin {
             x: -(WORKGROUP_SIZE as i32),
             y: 0,
         })
+        .insert_resource(Camera::default())
         .add_systems(Update, update_params.run_if(in_state(AppState::Running)));
 
         let render_app = app.sub_app_mut(RenderApp);
@@ -76,7 +99,8 @@ impl Plugin for ComputeShaderPlugin {
             .insert_resource(RenderState {
                 state: AppState::Waiting,
             })
-            .insert_resource(ParamsBuffer { buffer: None });
+            .insert_resource(ParamsBuffer { buffer: None })
+            .insert_resource(CameraBuffer { buffer: None });
 
         let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
         render_graph.add_node("game_of_life", ComputeShaderNode::default());
@@ -124,11 +148,6 @@ pub struct ComputeShaderPipeline {
 
 impl FromWorld for ComputeShaderPipeline {
     fn from_world(world: &mut World) -> Self {
-        println!(
-            "{:?}",
-            world.resource::<RenderDevice>().wgpu_device().limits()
-        );
-
         let texture_bind_group_layout =
             world
                 .resource::<RenderDevice>()
@@ -153,6 +172,18 @@ impl FromWorld for ComputeShaderPipeline {
                                 has_dynamic_offset: false,
                                 min_binding_size: BufferSize::new(
                                     std::mem::size_of::<Params>() as u64
+                                ),
+                            },
+                            count: None,
+                        },
+                        BindGroupLayoutEntry {
+                            binding: 2,
+                            visibility: ShaderStages::COMPUTE,
+                            ty: BindingType::Buffer {
+                                ty: BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: BufferSize::new(
+                                    std::mem::size_of::<Camera>() as u64
                                 ),
                             },
                             count: None,
@@ -193,6 +224,7 @@ fn queue_bind_group(
     game_of_life_image: Res<RenderImage>,
     render_device: Res<RenderDevice>,
     params_buffer: Res<ParamsBuffer>,
+    camera_buffer: Res<CameraBuffer>,
 ) {
     let view = &gpu_images[&game_of_life_image.image];
     let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
@@ -206,6 +238,10 @@ fn queue_bind_group(
             BindGroupEntry {
                 binding: 1,
                 resource: params_buffer.buffer.as_ref().unwrap().as_entire_binding(),
+            },
+            BindGroupEntry {
+                binding: 2,
+                resource: camera_buffer.buffer.as_ref().unwrap().as_entire_binding(),
             },
         ],
     });
@@ -298,6 +334,7 @@ impl render_graph::Node for ComputeShaderNode {
 fn prepare_params(
     params: Res<Params>,
     mut params_buffer: ResMut<ParamsBuffer>,
+    mut camera_buffer: ResMut<CameraBuffer>,
     render_queue: Res<RenderQueue>,
     render_device: Res<RenderDevice>,
 ) {
@@ -305,6 +342,15 @@ fn prepare_params(
         params_buffer.buffer = Some(render_device.create_buffer(&BufferDescriptor {
             label: Some("params buffer"),
             size: std::mem::size_of::<Params>() as u64,
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        }));
+    }
+
+    if camera_buffer.buffer.is_none() {
+        camera_buffer.buffer = Some(render_device.create_buffer(&BufferDescriptor {
+            label: Some("camera buffer"),
+            size: std::mem::size_of::<Camera>() as u64,
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         }));
