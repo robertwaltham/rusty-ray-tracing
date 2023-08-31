@@ -60,10 +60,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     commands
         .spawn(SpriteBundle {
             texture: image_handle.clone(),
-            sprite: Sprite {
-                color: Color::GRAY,
-                ..default()
-            },
+            sprite: Sprite { ..default() },
             ..default()
         })
         .insert(Name::new("Render Sprite"));
