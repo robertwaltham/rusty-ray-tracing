@@ -33,25 +33,25 @@
 
         const reloadInterval = 1000;
 
-        async function startReloadInterval() {
-            const fetchVersion = () => fetch("/api/version").then(response => response.text());
-            const version = await fetchVersion();
-            let intervalToken;
+        // async function startReloadInterval() {
+        //     const fetchVersion = () => fetch("/api/version").then(response => response.text());
+        //     const version = await fetchVersion();
+        //     let intervalToken;
 
-            function reloadIfChanged() {
-                fetchVersion()
-                    .then(newVersion => {
-                        if (version != newVersion) {
-                            window.location.reload();
-                        }
-                    });
-            }
+        //     function reloadIfChanged() {
+        //         fetchVersion()
+        //             .then(newVersion => {
+        //                 if (version != newVersion) {
+        //                     window.location.reload();
+        //                 }
+        //             });
+        //     }
 
-            intervalToken = setInterval(reloadIfChanged, reloadInterval)
-        }
+        //     intervalToken = setInterval(reloadIfChanged, reloadInterval)
+        // }
 
         run();
-        startReloadInterval();
+        // startReloadInterval();
     </script>
 
     <script>
