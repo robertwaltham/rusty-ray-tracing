@@ -58,13 +58,66 @@ pub struct Camera {
     focal_length: f32,
     viewport_width: f32,
     viewport_height: f32,
-    camera_center: Vec3,
-    viewport_u: Vec3,
-    viewport_v: Vec3,
-    pixel_delta_u: Vec3,
-    pixel_delta_v: Vec3,
-    viewport_upper_left: Vec3,
-    pixel00_loc: Vec3,
+    // camera_center: Vec3,
+    // viewport_u: Vec3,
+    // viewport_v: Vec3,
+    // pixel_delta_u: Vec3,
+    // pixel_delta_v: Vec3,
+    // viewport_upper_left: Vec3,
+    // pixel00_loc: Vec3,
+}
+
+impl Camera {
+    pub fn create_camera() -> Self {
+        let aspect_ratio = SIZE.0 as f32 / SIZE.1 as f32;
+
+        // Camera
+        let viewport_height = 2.;
+        let viewport_width = viewport_height * aspect_ratio;
+        let camera_center = Vec3::splat(0.);
+        let focal_length = 1.0;
+
+        // Calculate the vectors across the horizontal and down the vertical viewport edges.
+        let viewport_u = Vec3 {
+            x: viewport_width,
+            y: 0.,
+            z: 0.,
+        };
+        let viewport_v = Vec3 {
+            x: 0.,
+            y: -viewport_height,
+            z: 0.,
+        };
+
+        // Calculate the horizontal and vertical delta vectors from pixel to pixel.
+        let pixel_delta_u = viewport_u / SIZE.0 as f32;
+        let pixel_delta_v = viewport_u / SIZE.1 as f32;
+
+        // Calculate the location of the upper left pixel.
+        let viewport_upper_left = camera_center
+            - Vec3 {
+                x: 0.,
+                y: 0.,
+                z: focal_length,
+            }
+            - viewport_u / 2.
+            - viewport_v / 2.;
+
+        let pixel00_loc = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
+
+        Camera {
+            focal_length: focal_length,
+            viewport_width: viewport_width,
+            viewport_height: viewport_height,
+            // camera_center: camera_center,
+            // viewport_u: viewport_u,
+            // viewport_v: viewport_v,
+            // pixel_delta_u: pixel_delta_u,
+            // pixel_delta_v: pixel_delta_v,
+            // viewport_upper_left: viewport_upper_left,
+            // pixel00_loc: pixel00_loc,
+        }
+    }
 }
 
 #[derive(Resource, Debug)]
@@ -78,6 +131,7 @@ impl Plugin for ComputeShaderPlugin {
         app.add_plugins((
             ExtractResourcePlugin::<RenderImage>::default(),
             ExtractResourcePlugin::<Params>::default(),
+            ExtractResourcePlugin::<Camera>::default(),
         ))
         .register_type::<RenderImage>()
         .register_type::<Params>()
@@ -87,7 +141,7 @@ impl Plugin for ComputeShaderPlugin {
             x: -(WORKGROUP_SIZE as i32),
             y: 0,
         })
-        .insert_resource(Camera::default())
+        .insert_resource(Camera::create_camera())
         .add_systems(Update, update_params.run_if(in_state(AppState::Running)));
 
         let render_app = app.sub_app_mut(RenderApp);
@@ -333,6 +387,7 @@ impl render_graph::Node for ComputeShaderNode {
 // write the extracted time into the corresponding uniform buffer
 fn prepare_params(
     params: Res<Params>,
+    camera: Res<Camera>,
     mut params_buffer: ResMut<ParamsBuffer>,
     mut camera_buffer: ResMut<CameraBuffer>,
     render_queue: Res<RenderQueue>,
@@ -356,6 +411,15 @@ fn prepare_params(
         }));
     }
 
-    let data = bytes_of(params.as_ref());
-    render_queue.write_buffer(&params_buffer.buffer.as_ref().unwrap(), 0, data);
+    render_queue.write_buffer(
+        &params_buffer.buffer.as_ref().unwrap(),
+        0,
+        bytes_of(params.as_ref()),
+    );
+
+    render_queue.write_buffer(
+        &camera_buffer.buffer.as_ref().unwrap(),
+        0,
+        bytes_of(camera.as_ref()),
+    );
 }
