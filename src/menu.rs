@@ -142,7 +142,6 @@ fn update_params(params: Res<Params>, mut text_query: Query<&mut Text, With<Para
 }
 
 fn update_button(query: Query<(&ButtonComponent, &Children)>, mut text_query: Query<&mut Text>) {
-    println!("update!!");
     for (_button, children) in &query {
         let mut text = text_query.get_mut(children[0]).unwrap();
         text.sections[0].value = "Finished".to_string();

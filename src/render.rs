@@ -58,13 +58,20 @@ pub struct Camera {
     focal_length: f32,
     viewport_width: f32,
     viewport_height: f32,
-    // camera_center: Vec3,
-    // viewport_u: Vec3,
-    // viewport_v: Vec3,
-    // pixel_delta_u: Vec3,
-    // pixel_delta_v: Vec3,
-    // viewport_upper_left: Vec3,
-    // pixel00_loc: Vec3,
+    camera_center: [f32; 3],
+    _padding1: u32, // https://stackoverflow.com/a/75525055
+    viewport_u: [f32; 3],
+    _padding2: u32,
+    viewport_v: [f32; 3],
+    _padding3: u32,
+    pixel_delta_u: [f32; 3],
+    _padding4: u32,
+    pixel_delta_v: [f32; 3],
+    _padding5: u32,
+    viewport_upper_left: [f32; 3],
+    _padding6: u32,
+    pixel00_loc: [f32; 3],
+    _padding7: u32,
 }
 
 impl Camera {
@@ -109,14 +116,25 @@ impl Camera {
             focal_length: focal_length,
             viewport_width: viewport_width,
             viewport_height: viewport_height,
-            // camera_center: camera_center,
-            // viewport_u: viewport_u,
-            // viewport_v: viewport_v,
-            // pixel_delta_u: pixel_delta_u,
-            // pixel_delta_v: pixel_delta_v,
-            // viewport_upper_left: viewport_upper_left,
-            // pixel00_loc: pixel00_loc,
+            camera_center: camera_center.into(),
+            _padding1: 0,
+            viewport_u: viewport_u.into(),
+            _padding2: 0,
+            viewport_v: viewport_v.into(),
+            _padding3: 0,
+            pixel_delta_u: pixel_delta_u.into(),
+            _padding4: 0,
+            pixel_delta_v: pixel_delta_v.into(),
+            _padding5: 0,
+            viewport_upper_left: viewport_upper_left.into(),
+            _padding6: 0,
+            pixel00_loc: pixel00_loc.into(),
+            _padding7: 0,
         }
+    }
+
+    pub fn algined_size() -> u64 {
+        std::mem::size_of::<Camera>() as u64 + 4 // todo: figure out alignment, and why this is needed
     }
 }
 
@@ -236,9 +254,7 @@ impl FromWorld for ComputeShaderPipeline {
                             ty: BindingType::Buffer {
                                 ty: BufferBindingType::Uniform,
                                 has_dynamic_offset: false,
-                                min_binding_size: BufferSize::new(
-                                    std::mem::size_of::<Camera>() as u64
-                                ),
+                                min_binding_size: BufferSize::new(Camera::algined_size()),
                             },
                             count: None,
                         },
@@ -405,7 +421,7 @@ fn prepare_params(
     if camera_buffer.buffer.is_none() {
         camera_buffer.buffer = Some(render_device.create_buffer(&BufferDescriptor {
             label: Some("camera buffer"),
-            size: std::mem::size_of::<Camera>() as u64,
+            size: Camera::algined_size(),
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         }));

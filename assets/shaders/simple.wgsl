@@ -18,13 +18,14 @@ struct Camera {
     focal_length: f32,
     viewport_width: f32,
     viewport_height: f32,
-    // camera_center: vec3<f32>,
-    // viewport_u: vec3<f32>,
-    // viewport_v: vec3<f32>,
-    // pixel_delta_u: vec3<f32>,
-    // pixel_delta_v: vec3<f32>,
-    // viewport_upper_left: vec3<f32>,
-    // pixel00_loc: vec3<f32>
+    camera_center: vec3<f32>,
+    viewport_u: vec3<f32>,
+    viewport_v: vec3<f32>,
+    pixel_delta_u: vec3<f32>,
+    pixel_delta_v: vec3<f32>,
+    viewport_upper_left: vec3<f32>,
+    pixel00_loc: vec3<f32>,
+    padding_g: f32,
 }
 
 @group(0) @binding(2)
@@ -42,7 +43,10 @@ fn at(ray: Ray, t: f32) -> vec3<f32> {
 fn ray_colour(ray: Ray) -> vec4<f32> {
     let direction = normalize(ray.direction);
     let value = 0.5 * (direction.y + 1.);
-    return (1.0 - value) * vec4<f32>(1., 1., 1., 1.) + value * vec4<f32>(0.5, 0.5, 1., 1.);
+    let rgb = (1.0 - value) * vec3<f32>(1., 1., 1.) + value * vec3<f32>(0.5, 0.7, 1.);
+    // let rgb = vec3<f32>(value, 0., 0.);
+
+    return vec4<f32>(rgb, 0.1);
 }
 
 
@@ -58,12 +62,10 @@ fn init(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_wo
 fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_workgroups) num_workgroups: vec3<u32>) {
     var location = vec2<i32>(i32(invocation_id.x + u32(params.x)), i32(invocation_id.y + u32(params.y)));
 
-    let color = vec4<f32>(0.0, 0.5, 0.0, 1.0);
-
-    // let pixel_center = camera.pixel00_loc + (f32(location.x) * camera.pixel_delta_u) + (f32(location.y) * camera.pixel_delta_v);
-    // let ray_direction = pixel_center - camera.camera_center;
-    // let ray = Ray(camera.camera_center, ray_direction);
-    // let color = ray_colour(ray);
+    let pixel_center = camera.pixel00_loc + (f32(location.x) * camera.pixel_delta_u) + (f32(location.y) * camera.pixel_delta_v);
+    let ray_direction = pixel_center - camera.camera_center;
+    let ray = Ray(camera.camera_center, ray_direction);
+    let color = ray_colour(ray);
 
     storageBarrier();
 
