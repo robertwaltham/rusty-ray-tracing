@@ -160,7 +160,8 @@ impl Plugin for ComputeShaderPlugin {
             y: 0,
         })
         .insert_resource(Camera::create_camera())
-        .add_systems(Update, update_params.run_if(in_state(AppState::Running)));
+        .add_systems(Update, update_params.run_if(in_state(AppState::Running)))
+        .add_systems(Last, post_reset.run_if(in_state(AppState::Reset)));
 
         let render_app = app.sub_app_mut(RenderApp);
 
@@ -392,6 +393,16 @@ impl render_graph::Node for ComputeShaderNode {
                         .unwrap();
                     pass.set_pipeline(update_pipeline);
                     pass.dispatch_workgroups(8, 8, 1); // TODO: match to WORKGROUP_SIZE
+                } else if state == &AppState::Reset {
+                    let init_pipeline = pipeline_cache
+                        .get_compute_pipeline(pipeline.init_pipeline)
+                        .unwrap();
+                    pass.set_pipeline(init_pipeline);
+                    pass.dispatch_workgroups(
+                        SIZE.0 / INIT_WORKGROUP_SIZE,
+                        SIZE.1 / INIT_WORKGROUP_SIZE,
+                        1,
+                    );
                 }
             }
         }
@@ -438,4 +449,8 @@ fn prepare_params(
         0,
         bytes_of(camera.as_ref()),
     );
+}
+
+fn post_reset(mut next_state: ResMut<NextState<AppState>>) {
+    next_state.set(AppState::Waiting);
 }

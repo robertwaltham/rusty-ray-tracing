@@ -1,8 +1,10 @@
 use bevy::{prelude::*, render::render_resource::*};
-use menu::Menu;
+// use menu::Menu;
+use egui_menu::Menu;
 use render::{ComputeShaderPlugin, RenderImage};
 
-pub mod menu;
+// pub mod menu;
+pub mod egui_menu;
 pub mod render;
 
 #[derive(States, Debug, Default, Clone, Eq, PartialEq, Hash)]
@@ -11,6 +13,7 @@ enum AppState {
     Waiting,
     Running,
     Done,
+    Reset,
 }
 
 const SIZE: (u32, u32) = (512, 512);
