@@ -1,9 +1,7 @@
 use bevy::{prelude::*, render::render_resource::*};
-// use menu::Menu;
-use egui_menu::Menu;
 use render::{ComputeShaderPlugin, RenderImage};
 
-// pub mod menu;
+pub mod bevy_menu;
 pub mod egui_menu;
 pub mod render;
 
@@ -23,23 +21,33 @@ const INIT_WORKGROUP_SIZE: u32 = 8;
 fn main() {
     let mut app = App::new();
     app.add_state::<AppState>()
-        .add_plugins((DefaultPlugins, ComputeShaderPlugin, Menu))
+        .add_plugins((DefaultPlugins, ComputeShaderPlugin))
         .add_systems(Startup, setup);
-    add_egui_inspector(&mut app);
+    add_gui(&mut app);
     app.run();
 }
 
+/*
+Note: using egui is currently incompatible with wasm, due to an issue with texture bindings
+See: https://github.com/mvlabat/bevy_egui/issues/192, https://github.com/bevyengine/bevy/discussions/9163
+*/
+
 #[cfg(target_arch = "wasm32")]
 #[allow(unused_variables, unused_mut)]
-fn add_egui_inspector(mut app: &App) {}
+fn add_gui(app: &mut App) {
+    use bevy_menu::Menu;
+    app.add_plugins(Menu);
+}
 
 #[cfg(not(target_arch = "wasm32"))]
-fn add_egui_inspector(app: &mut App) {
+fn add_gui(app: &mut App) {
     use bevy::input::common_conditions::input_toggle_active;
     use bevy_inspector_egui::quick::WorldInspectorPlugin;
-    app.add_plugins(
+    use egui_menu::Menu;
+    app.add_plugins((
+        Menu,
         WorldInspectorPlugin::new().run_if(input_toggle_active(false, KeyCode::Escape)),
-    );
+    ));
 }
 
 fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {

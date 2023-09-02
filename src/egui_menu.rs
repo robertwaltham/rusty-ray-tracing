@@ -13,12 +13,11 @@ const PANEL_WIDTH: f32 = 200.;
 pub struct Menu;
 impl Plugin for Menu {
     fn build(&self, app: &mut App) {
-        app.add_plugins(EguiPlugin)
-            .add_systems(Update, ui_example_system);
+        app.add_plugins(EguiPlugin).add_systems(Update, ui_system);
     }
 }
 
-fn ui_example_system(
+fn ui_system(
     mut contexts: EguiContexts,
     mut next_state: ResMut<NextState<AppState>>,
     state: Res<State<AppState>>,

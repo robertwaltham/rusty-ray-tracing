@@ -14,9 +14,8 @@ enum ButtonType {
 pub struct Menu;
 impl Plugin for Menu {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (button_interaction, update_params))
-            .add_systems(Startup, setup_menu)
-            .add_systems(OnEnter(AppState::Done), update_button);
+        app.add_systems(Update, (button_interaction, update_params, update_button))
+            .add_systems(Startup, setup_menu);
     }
 }
 
@@ -141,29 +140,36 @@ fn update_params(params: Res<Params>, mut text_query: Query<&mut Text, With<Para
     );
 }
 
-fn update_button(query: Query<(&ButtonComponent, &Children)>, mut text_query: Query<&mut Text>) {
-    for (_button, children) in &query {
-        let mut text = text_query.get_mut(children[0]).unwrap();
-        text.sections[0].value = "Finished".to_string();
+fn update_button(
+    query: Query<(&ButtonComponent, &Children)>,
+    mut text_query: Query<&mut Text>,
+    state: Res<State<AppState>>,
+) {
+    for (button, children) in &query {
+        match button.button_type {
+            ButtonType::StartButton => {
+                let mut text = text_query.get_mut(children[0]).unwrap();
+                let button_text = match state.get() {
+                    AppState::Waiting => "Start",
+                    AppState::Running => "Pause",
+                    AppState::Done => "Reset",
+                    AppState::Reset => "Start",
+                };
+                text.sections[0].value = button_text.to_string();
+            }
+        }
     }
 }
 
 fn button_interaction(
     mut interaction_query: Query<
-        (
-            &Interaction,
-            &mut BackgroundColor,
-            &mut ButtonComponent,
-            &Children,
-        ),
+        (&Interaction, &mut BackgroundColor, &mut ButtonComponent),
         (Changed<Interaction>, With<ButtonComponent>),
     >,
-    mut text_query: Query<&mut Text>,
     mut next_state: ResMut<NextState<AppState>>,
     state: Res<State<AppState>>,
 ) {
-    for (interaction, mut color, mut button, children) in &mut interaction_query {
-        let mut text = text_query.get_mut(children[0]).unwrap();
+    for (interaction, mut color, mut button) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
                 *color = PRESSED_BUTTON.into();
@@ -176,17 +182,15 @@ fn button_interaction(
                     match button.button_type {
                         ButtonType::StartButton => match state.get() {
                             AppState::Running => {
-                                text.sections[0].value = "Running".to_string();
                                 next_state.set(AppState::Waiting);
                             }
                             AppState::Waiting => {
                                 next_state.set(AppState::Running);
-                                text.sections[0].value = "Rendering".to_string();
                             }
                             AppState::Done => {
-                                next_state.set(AppState::Running);
-                                text.sections[0].value = "Rendering".to_string();
+                                next_state.set(AppState::Reset);
                             }
+                            AppState::Reset => {}
                         },
                     }
                 }
