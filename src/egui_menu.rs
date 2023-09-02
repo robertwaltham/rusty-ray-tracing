@@ -6,8 +6,7 @@ use bevy_egui::{
     EguiContexts, EguiPlugin,
 };
 
-use crate::render::{Camera, Params};
-use crate::AppState;
+use crate::{camera::Camera, render::Params, AppState};
 
 const PANEL_WIDTH: f32 = 200.;
 pub struct Menu;

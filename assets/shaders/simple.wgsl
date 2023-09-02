@@ -15,9 +15,6 @@ var<uniform> params: Params;
 
 
 struct Camera {
-    focal_length: f32,
-    viewport_width: f32,
-    viewport_height: f32,
     camera_center: vec3<f32>,
     viewport_u: vec3<f32>,
     viewport_v: vec3<f32>,
@@ -42,14 +39,13 @@ struct Sphere {
 }
 
 fn at(ray: Ray, t: f32) -> vec3<f32> {
-    return ray.origin + ray.direction * t;
+    return ray.origin + (ray.direction * t);
 }
 
 fn ray_colour(ray: Ray) -> vec4<f32> {
     let direction = normalize(ray.direction);
     let value = (direction.y + 1.) / 2.;
     let rgb = ((1.0 - value) * vec3<f32>(1., 1., 1.)) + (value * vec3<f32>(0.5, 0.7, 1.));
-
     return vec4<f32>(rgb, 1.);
 }
 
@@ -81,12 +77,7 @@ fn init(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_wo
 fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_workgroups) num_workgroups: vec3<u32>) {
     var location = vec2<i32>(i32(invocation_id.x + u32(params.x)), i32(invocation_id.y + u32(params.y)));
 
-    // TODO: figure out why this doesn't get passed in properly
-    let pixel_delta_u = vec3<f32>(0.00390625, 0., 0.);
-    let pixel_delta_v = vec3<f32>(0., 0.00390625, 0.);
-    let pixel00_loc = vec3<f32>(0.998046875, 0.998046875, 1.);
-
-    let pixel_center = pixel00_loc - (f32(location.x) * pixel_delta_u) - (f32(location.y) * pixel_delta_v);
+    let pixel_center = camera.pixel00_loc + (f32(location.x) * camera.pixel_delta_u) + (f32(location.y) * camera.pixel_delta_v);
     let ray_direction = pixel_center - camera.camera_center;
     let ray = Ray(camera.camera_center, ray_direction);
 
@@ -102,15 +93,12 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_
         color = vec4<f32>(normal_color, 1.);
     }
 
-
     let hit2 = hit_sphere(sphere2, ray);
     if hit2 > 0. {
         let n = normalize(at(ray, hit2) - vec3(0., 0., -1.));
         let normal_color = 0.5 * (n + 1.);
         color = vec4<f32>(normal_color, 1.);
     }
-
-
 
     storageBarrier();
 
