@@ -153,6 +153,8 @@ impl Plugin for ComputeShaderPlugin {
         ))
         .register_type::<RenderImage>()
         .register_type::<Params>()
+        .register_type::<Camera>()
+        .register_type::<[f32; 3]>()
         .insert_resource(Params {
             count: 0,
             size: WORKGROUP_SIZE as i32,
