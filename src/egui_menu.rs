@@ -6,7 +6,11 @@ use bevy_egui::{
     EguiContexts, EguiPlugin,
 };
 
-use crate::{camera::Camera, render::Params, AppState};
+use crate::{
+    camera::Camera,
+    render::{Params, Spheres},
+    AppState,
+};
 
 const PANEL_WIDTH: f32 = 200.;
 pub struct Menu;
@@ -21,7 +25,8 @@ fn ui_system(
     mut next_state: ResMut<NextState<AppState>>,
     state: Res<State<AppState>>,
     camera: Res<Camera>,
-    params: Res<Params>,
+    mut params: ResMut<Params>,
+    mut spheres: ResMut<Spheres>,
     type_registry: Res<AppTypeRegistry>,
 ) {
     let ctx = contexts.ctx_mut();
@@ -65,11 +70,29 @@ fn ui_system(
                 }
             });
 
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
-                ui.add(egui::Hyperlink::from_label_and_url(
-                    "fork me on github",
-                    "https://github.com/robertwaltham/rusty-ray-tracing/",
-                ));
+            ui.allocate_space(egui::Vec2::new(1.0, 20.0));
+
+            ui.heading("Spheres");
+
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label("count");
+                    ui.add(egui::Slider::new(&mut params.spheres, 1..=10));
+                });
+
+                for i in 0..params.spheres {
+                    ui.label(format!("{}", i));
+                    let labels = ["x", "y", "z", "r"];
+
+                    for j in 0..4 {
+                        ui.horizontal(|ui| {
+                            ui.add(
+                                egui::Slider::new(&mut spheres.spheres[i as usize][j], -1.0..=1.0)
+                                    .text(labels[j]),
+                            );
+                        });
+                    }
+                }
             });
         });
 
@@ -98,6 +121,13 @@ fn ui_system(
                     ui.label(value);
                 });
             }
+
+            ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
+                ui.add(egui::Hyperlink::from_label_and_url(
+                    "fork me on github",
+                    "https://github.com/robertwaltham/rusty-ray-tracing/",
+                ));
+            });
         });
 }
 

@@ -71,7 +71,7 @@ struct SphereBuffer {
 )]
 #[repr(C)]
 pub struct Spheres {
-    spheres: [[f32; 4]; MAX_SPHERES],
+    pub spheres: [[f32; 4]; MAX_SPHERES],
 }
 
 impl Spheres {
