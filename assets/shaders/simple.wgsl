@@ -65,9 +65,9 @@ struct HitRecord {
 fn hit_sphere(sphere: Sphere, ray: Ray, ray_tmin: f32, ray_tmax: f32) -> HitRecord {
 
     let origin_to_center = ray.origin - sphere.center;
-    let a = length(ray.direction * ray.direction);
+    let a = dot(ray.direction, ray.direction);
     let half_b = dot(origin_to_center, ray.direction);
-    let c = length(origin_to_center * origin_to_center) - pow(sphere.radius, 2.);
+    let c = dot(origin_to_center, origin_to_center) - pow(sphere.radius, 2.);
 
     let discriminant = pow(half_b, 2.) - (a * c);
     if discriminant < 0. {
