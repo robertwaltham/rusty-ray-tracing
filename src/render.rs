@@ -77,7 +77,7 @@ pub struct Spheres {
 impl Spheres {
     fn default_scene() -> Self {
         let mut spheres = Spheres::default();
-        spheres.spheres[1] = [-0.5, 0., -1., 0.5];
+        spheres.spheres[0] = [-0.5, 0., -1., 0.5];
         spheres.spheres[1] = [0.5, 0., -1., 0.25];
         spheres
     }
@@ -101,7 +101,7 @@ impl Plugin for ComputeShaderPlugin {
             size: WORKGROUP_SIZE as i32,
             x: -(WORKGROUP_SIZE as i32),
             y: 0,
-            spheres: 0,
+            spheres: 2,
             ..default()
         })
         .insert_resource(Camera::create_camera())
@@ -406,7 +406,7 @@ fn prepare_params(
 
     if spheres_buffer.buffer.is_none() {
         spheres_buffer.buffer = Some(render_device.create_buffer(&BufferDescriptor {
-            label: Some("params buffer"),
+            label: Some("spheres buffer"),
             size: std::mem::size_of::<Spheres>() as u64,
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             mapped_at_creation: false,
