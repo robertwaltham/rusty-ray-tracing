@@ -67,9 +67,6 @@ impl Camera {
         let pixel00_loc = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
 
         Camera {
-            // focal_length: focal_length,
-            // viewport_width: viewport_width,
-            // viewport_height: viewport_height,
             camera_center: camera_center.into(),
             _padding1: 0,
             viewport_u: viewport_u.into(),

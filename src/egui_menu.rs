@@ -113,6 +113,9 @@ fn data_for_resource<T: Resource + Reflect + GetField>(
     match resource_info {
         TypeInfo::Struct(info) => {
             for named_field in info.iter() {
+                if named_field.name().starts_with('_') {
+                    continue;
+                }
                 match r.get(named_field.type_id()).unwrap().type_info() {
                     TypeInfo::Value(val) => {
                         macro_rules! type_ui {

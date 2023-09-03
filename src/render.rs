@@ -15,6 +15,8 @@ use bevy::{
 use bytemuck::{bytes_of, Pod};
 use std::borrow::Cow;
 
+const MAX_SPHERES: usize = 10;
+
 #[derive(Resource, Clone, Deref, ExtractResource, Reflect)]
 pub struct RenderImage {
     pub image: Handle<Image>,
@@ -43,6 +45,10 @@ pub struct Params {
     pub size: i32,
     pub x: i32,
     pub y: i32,
+    pub spheres: i32,
+    _padding1: i32,
+    _padding2: i32,
+    _padding3: i32,
 }
 
 #[derive(Resource, Debug)]
@@ -55,6 +61,28 @@ struct CameraBuffer {
     buffer: Option<Buffer>,
 }
 
+#[derive(Resource, Debug)]
+struct SphereBuffer {
+    buffer: Option<Buffer>,
+}
+
+#[derive(
+    ShaderType, Pod, Zeroable, Clone, Copy, Resource, Reflect, ExtractResource, Default, Debug,
+)]
+#[repr(C)]
+pub struct Spheres {
+    spheres: [[f32; 4]; MAX_SPHERES],
+}
+
+impl Spheres {
+    fn default_scene() -> Self {
+        let mut spheres = Spheres::default();
+        spheres.spheres[1] = [-0.5, 0., -1., 0.5];
+        spheres.spheres[1] = [0.5, 0., -1., 0.25];
+        spheres
+    }
+}
+
 pub struct ComputeShaderPlugin;
 impl Plugin for ComputeShaderPlugin {
     fn build(&self, app: &mut App) {
@@ -62,6 +90,7 @@ impl Plugin for ComputeShaderPlugin {
             ExtractResourcePlugin::<RenderImage>::default(),
             ExtractResourcePlugin::<Params>::default(),
             ExtractResourcePlugin::<Camera>::default(),
+            ExtractResourcePlugin::<Spheres>::default(),
         ))
         .register_type::<RenderImage>()
         .register_type::<Params>()
@@ -72,8 +101,11 @@ impl Plugin for ComputeShaderPlugin {
             size: WORKGROUP_SIZE as i32,
             x: -(WORKGROUP_SIZE as i32),
             y: 0,
+            spheres: 0,
+            ..default()
         })
         .insert_resource(Camera::create_camera())
+        .insert_resource(Spheres::default_scene())
         .add_systems(Update, update_params.run_if(in_state(AppState::Running)))
         .add_systems(Last, post_reset.run_if(in_state(AppState::Reset)));
 
@@ -87,6 +119,7 @@ impl Plugin for ComputeShaderPlugin {
                 state: AppState::Waiting,
             })
             .insert_resource(ParamsBuffer { buffer: None })
+            .insert_resource(SphereBuffer { buffer: None })
             .insert_resource(CameraBuffer { buffer: None });
 
         let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
@@ -173,6 +206,18 @@ impl FromWorld for ComputeShaderPipeline {
                             },
                             count: None,
                         },
+                        BindGroupLayoutEntry {
+                            binding: 3,
+                            visibility: ShaderStages::COMPUTE,
+                            ty: BindingType::Buffer {
+                                ty: BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: BufferSize::new(
+                                    std::mem::size_of::<Spheres>() as u64
+                                ),
+                            },
+                            count: None,
+                        },
                     ],
                 });
         let shader = world.resource::<AssetServer>().load("shaders/simple.wgsl");
@@ -210,6 +255,7 @@ fn queue_bind_group(
     render_device: Res<RenderDevice>,
     params_buffer: Res<ParamsBuffer>,
     camera_buffer: Res<CameraBuffer>,
+    spheres_buffer: Res<SphereBuffer>,
 ) {
     let view = &gpu_images[&game_of_life_image.image];
     let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
@@ -227,6 +273,10 @@ fn queue_bind_group(
             BindGroupEntry {
                 binding: 2,
                 resource: camera_buffer.buffer.as_ref().unwrap().as_entire_binding(),
+            },
+            BindGroupEntry {
+                binding: 3,
+                resource: spheres_buffer.buffer.as_ref().unwrap().as_entire_binding(),
             },
         ],
     });
@@ -329,8 +379,10 @@ impl render_graph::Node for ComputeShaderNode {
 fn prepare_params(
     params: Res<Params>,
     camera: Res<Camera>,
+    spheres: Res<Spheres>,
     mut params_buffer: ResMut<ParamsBuffer>,
     mut camera_buffer: ResMut<CameraBuffer>,
+    mut spheres_buffer: ResMut<SphereBuffer>,
     render_queue: Res<RenderQueue>,
     render_device: Res<RenderDevice>,
 ) {
@@ -352,6 +404,15 @@ fn prepare_params(
         }));
     }
 
+    if spheres_buffer.buffer.is_none() {
+        spheres_buffer.buffer = Some(render_device.create_buffer(&BufferDescriptor {
+            label: Some("params buffer"),
+            size: std::mem::size_of::<Spheres>() as u64,
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        }));
+    }
+
     render_queue.write_buffer(
         &params_buffer.buffer.as_ref().unwrap(),
         0,
@@ -362,6 +423,12 @@ fn prepare_params(
         &camera_buffer.buffer.as_ref().unwrap(),
         0,
         bytes_of(camera.as_ref()),
+    );
+
+    render_queue.write_buffer(
+        &spheres_buffer.buffer.as_ref().unwrap(),
+        0,
+        bytes_of(spheres.as_ref()),
     );
 }
 

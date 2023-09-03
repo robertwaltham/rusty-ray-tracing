@@ -8,6 +8,7 @@ struct Params {
     size: i32,
     x: i32,
     y: i32,
+    sphere_count: i32,
 }
 
 @group(0) @binding(1)
@@ -27,16 +28,22 @@ struct Camera {
 @group(0) @binding(2)
 var<uniform> camera: Camera;
 
+
+struct Sphere {
+    center: vec3<f32>,
+    radius: f32,
+}
+
+@group(0) @binding(3) 
+var<uniform> spheres: array<Sphere, 10>;
+
+
 struct Ray {
     origin: vec3<f32>,
     direction: vec3<f32>
 }
 
-struct Sphere {
-    center: vec3<f32>,
-    radius: f32,
-    color: vec4<f32>
-}
+
 
 fn at(ray: Ray, t: f32) -> vec3<f32> {
     return ray.origin + (ray.direction * t);
@@ -81,24 +88,18 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_
     let ray_direction = pixel_center - camera.camera_center;
     let ray = Ray(camera.camera_center, ray_direction);
 
-    let sphere = Sphere(vec3<f32>(-0.5, 0., -1.), 0.5, vec4<f32>(1., 0., 0., 1.));
-    let sphere2 = Sphere(vec3<f32>(0.5, 0., -1.), 0.25, vec4<f32>(1., 0., 0., 1.));
-
     var color = ray_colour(ray);
 
-    let hit = hit_sphere(sphere, ray);
-    if hit > 0. {
-        let n = normalize(at(ray, hit) - vec3(0., 0., -1.));
-        let normal_color = 0.5 * (n + 1.);
-        color = vec4<f32>(normal_color, 1.);
+    for (var i: i32 = 0; i < params.sphere_count; i++) {
+        let sphere = spheres[i];
+        let hit = hit_sphere(sphere, ray);
+        if hit > 0. {
+            let n = normalize(at(ray, hit) - vec3(0., 0., -1.));
+            let normal_color = 0.5 * (n + 1.);
+            color = vec4<f32>(normal_color, 1.);
+        }
     }
 
-    let hit2 = hit_sphere(sphere2, ray);
-    if hit2 > 0. {
-        let n = normalize(at(ray, hit2) - vec3(0., 0., -1.));
-        let normal_color = 0.5 * (n + 1.);
-        color = vec4<f32>(normal_color, 1.);
-    }
 
     storageBarrier();
 
