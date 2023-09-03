@@ -43,8 +43,6 @@ struct Ray {
     direction: vec3<f32>
 }
 
-
-
 fn at(ray: Ray, t: f32) -> vec3<f32> {
     return ray.origin + (ray.direction * t);
 }
@@ -56,19 +54,44 @@ fn ray_colour(ray: Ray) -> vec4<f32> {
     return vec4<f32>(rgb, 1.);
 }
 
-fn hit_sphere(sphere: Sphere, ray: Ray) -> f32 {
+struct HitRecord {
+    point: vec3<f32>,
+    normal: vec3<f32>,
+    t: f32,
+    front_face: bool,
+    hit: bool
+}
 
-    let oc = ray.origin - sphere.center;
-    let a = dot(ray.direction, ray.direction);
-    let b = 2. * dot(oc, ray.direction);
-    let c = dot(oc, oc) - sphere.radius * sphere.radius;
-    let discriminant = b * b - 4. * a * c;
+fn hit_sphere(sphere: Sphere, ray: Ray, ray_tmin: f32, ray_tmax: f32) -> HitRecord {
 
+    let origin_to_center = ray.origin - sphere.center;
+    let a = length(ray.direction * ray.direction);
+    let half_b = dot(origin_to_center, ray.direction);
+    let c = length(origin_to_center * origin_to_center) - pow(sphere.radius, 2.);
+
+    let discriminant = pow(half_b, 2.) - (a * c);
     if discriminant < 0. {
-        return -1.;
-    } else {
-        return abs((-b - sqrt(discriminant)) / (2.0 * a));
+        return HitRecord();
     }
+
+    let sqrt_discriminant = sqrt(discriminant);
+    var root = (-half_b - sqrt_discriminant) / a;
+    if root <= ray_tmin || ray_tmax <= root {
+        root = (-half_b + sqrt_discriminant) / a;
+        if root <= ray_tmin || ray_tmax <= root {
+            return HitRecord();
+        }
+    }
+
+    let point = at(ray, root);
+    var normal = (point - sphere.center) / sphere.radius;
+    let front_face = dot(ray.direction, normal) < 0.;
+
+    if !front_face {
+        normal = normal * -1.;
+    }
+
+    return HitRecord(point, normal, root, front_face, true);
 }
 
 
@@ -88,18 +111,28 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_
     let ray_direction = pixel_center - camera.camera_center;
     let ray = Ray(camera.camera_center, ray_direction);
 
-    var color = ray_colour(ray);
+
+    var closest_hit = HitRecord();
+    closest_hit.t = 10000.;
+    var closest_sphere = Sphere();
 
     for (var i: i32 = 0; i < params.sphere_count; i++) {
         let sphere = spheres[i];
-        let hit = hit_sphere(sphere, ray);
-        if hit > 0. {
-            let n = normalize(at(ray, hit) - vec3(0., 0., -1.));
-            let normal_color = 0.5 * (n + 1.);
-            color = vec4<f32>(normal_color, 1.);
+        let hit = hit_sphere(sphere, ray, 0., closest_hit.t);
+
+        if hit.hit && hit.t < closest_hit.t {
+            closest_hit = hit;
+            closest_sphere = sphere;
         }
     }
 
+    var color: vec4<f32>;
+    if closest_hit.hit {
+        let normal_color = 0.5 * (closest_hit.normal + 1.);
+        color = vec4<f32>(normal_color, 1.);
+    } else {
+        color = ray_colour(ray);
+    }
 
     storageBarrier();
 
