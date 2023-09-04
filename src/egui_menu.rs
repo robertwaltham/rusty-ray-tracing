@@ -72,6 +72,22 @@ fn ui_system(
 
             ui.allocate_space(egui::Vec2::new(1.0, 20.0));
 
+            ui.heading("Rendering Controls");
+
+            ui.horizontal(|ui| {
+                ui.label("sample count");
+                ui.add(egui::Slider::new(&mut params.samples, 1..=50).show_value(false));
+                ui.label(format!("{}", params.samples));
+            });
+
+            ui.horizontal(|ui| {
+                ui.label("depth");
+                ui.add(egui::Slider::new(&mut params.depth, 1..=20).show_value(false));
+                ui.label(format!("{}", params.depth));
+            });
+
+            ui.allocate_space(egui::Vec2::new(1.0, 20.0));
+
             ui.heading("Spheres");
 
             egui::ScrollArea::vertical().show(ui, |ui| {

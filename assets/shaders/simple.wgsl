@@ -11,6 +11,7 @@ struct Params {
     sphere_count: i32,
     seed: i32,
     samples: i32,
+    depth: i32,
 }
 
 @group(0) @binding(1)
@@ -39,9 +40,33 @@ struct Sphere {
 @group(0) @binding(3) 
 var<uniform> spheres: array<Sphere, 10>;
 
-// shamelessly copied from https://www.shadertoy.com/view/4ssXRX
-fn nrand(n: vec2<f32>) -> f32 {
-    return fract(sin(dot(n.xy, vec2(12.9898, 78.233))) * 43758.5453);
+// http://byteblacksmith.com/improvements-to-the-canonical-one-liner-glsl-rand-for-opengl-es-2-0/
+fn nrand() -> f32 {
+    seed += 1.;
+    return fract(sin(dot(seed.xy, vec2(12.9898, 78.233))) * 43758.5453);
+}
+fn nrand_vec3() -> vec3<f32> {
+    return vec3<f32>(nrand(), nrand(), nrand());
+}
+var<workgroup> seed: vec2<f32>;
+
+fn rand_in_unit_sphere() -> vec3<f32> {
+    while true {
+        let v = nrand_vec3();
+        if v.x * v.x + v.y * v.y + v.z * v.z < 1. {
+            return v;
+        }
+    }
+    return vec3<f32>();
+}
+
+fn random_on_hemisphere(normal: vec3<f32>) -> vec3<f32> {
+    let on_unit_sphere = rand_in_unit_sphere();
+    if dot(normalize(on_unit_sphere), normal) > 0.0 {
+        return on_unit_sphere;
+    } else {
+        return -on_unit_sphere;
+    }
 }
 
 struct Ray {
@@ -113,12 +138,13 @@ fn init(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_wo
 @compute @workgroup_size(8, 8, 1)
 fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_workgroups) num_workgroups: vec3<u32>) {
     var location = vec2<i32>(i32(invocation_id.x + u32(params.x)), i32(invocation_id.y + u32(params.y)));
+    seed = vec2<f32>(location); // set initial random seed
 
     let pixel_center = camera.pixel00_loc + (f32(location.x) * camera.pixel_delta_u) + (f32(location.y) * camera.pixel_delta_v);
     let ray_direction = pixel_center - camera.camera_center;
     var color = vec4<f32>(0., 0., 0., 0.);
     for (var i: i32 = 0; i < params.samples; i++) {
-        let ray = Ray(camera.camera_center, ray_direction + pixel_sample_square(vec2<f32>(location + i)));
+        let ray = Ray(camera.camera_center, ray_direction + pixel_sample_square());
         color += ray_color(ray);
     }
     color /= f32(params.samples);
@@ -128,36 +154,52 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_
     textureStore(texture, location, color);
 }
 
-fn pixel_sample_square(seed: vec2<f32>) -> vec3<f32> {
-    let px = -0.5 + nrand(seed);
-    let py = -0.5 + nrand(seed - 1.); // todo: refactor to give a better distribution
+fn pixel_sample_square() -> vec3<f32> {
+    let px = -0.5 + nrand();
+    let py = -0.5 + nrand();
     return (camera.pixel_delta_u * px) + (camera.pixel_delta_v * py);
 }
 
 fn ray_color(ray: Ray) -> vec4<f32> {
+
+    var ray = ray;
+    var color = vec4<f32>();
     var closest_hit = HitRecord();
-    closest_hit.t = 10000.;
-    var closest_sphere = Sphere();
 
-    for (var i: i32 = 0; i < params.sphere_count; i++) {
-        let sphere = spheres[i];
-        let interval = vec2<f32>(0., closest_hit.t);
-        let hit = hit_sphere(sphere, ray, interval);
+    for (var j: i32 = 0; j < params.depth; j++) {
+        closest_hit.t = 10000.;
+        var closest_sphere = Sphere();
 
-        if hit.hit && hit.t < closest_hit.t {
-            closest_hit = hit;
-            closest_sphere = sphere;
+        for (var i: i32 = 0; i < params.sphere_count; i++) {
+            let sphere = spheres[i];
+            let interval = vec2<f32>(0., closest_hit.t);
+            let hit = hit_sphere(sphere, ray, interval);
+
+            if hit.hit && hit.t < closest_hit.t {
+                closest_hit = hit;
+                closest_sphere = sphere;
+            }
         }
+
+        if closest_hit.hit {
+        // let normal_color = 0.5 * (closest_hit.normal + 1.);
+        // color = vec4<f32>(normal_color, 1.);
+
+            let direction = random_on_hemisphere(closest_hit.normal);
+            ray = Ray(closest_hit.point, direction);
+            color = 0.5 * background_color(ray);
+        } else {
+            break;
+        }
+
+        closest_hit = HitRecord();
     }
 
-    var color: vec4<f32>;
     if closest_hit.hit {
-        let normal_color = 0.5 * (closest_hit.normal + 1.);
-        color = vec4<f32>(normal_color, 1.);
+        return color;
     } else {
-        color = background_color(ray);
+        return background_color(ray);
     }
-    return color;
 }
 
 fn background_color(ray: Ray) -> vec4<f32> {

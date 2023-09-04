@@ -46,7 +46,7 @@ pub struct Params {
     pub spheres: i32,
     pub seed: i32,
     pub samples: i32,
-    _padding3: i32,
+    pub depth: i32,
 }
 
 impl Default for Params {
@@ -59,7 +59,7 @@ impl Default for Params {
             spheres: 2,
             seed: 0,
             samples: 10,
-            _padding3: 0,
+            depth: 1,
         }
     }
 }
