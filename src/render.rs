@@ -36,9 +36,7 @@ enum ComputeShaderState {
     Update,
 }
 
-#[derive(
-    ShaderType, Pod, Zeroable, Clone, Copy, Resource, Reflect, ExtractResource, Default, Debug,
-)]
+#[derive(ShaderType, Pod, Zeroable, Clone, Copy, Resource, Reflect, ExtractResource, Debug)]
 #[repr(C)]
 pub struct Params {
     pub count: i32,
@@ -46,9 +44,24 @@ pub struct Params {
     pub x: i32,
     pub y: i32,
     pub spheres: i32,
-    _padding1: i32,
-    _padding2: i32,
+    pub seed: i32,
+    pub samples: i32,
     _padding3: i32,
+}
+
+impl Default for Params {
+    fn default() -> Self {
+        Params {
+            count: 0,
+            size: WORKGROUP_SIZE as i32,
+            x: -(WORKGROUP_SIZE as i32),
+            y: 0,
+            spheres: 2,
+            seed: 0,
+            samples: 10,
+            _padding3: 0,
+        }
+    }
 }
 
 #[derive(Resource, Debug)]
@@ -96,14 +109,7 @@ impl Plugin for ComputeShaderPlugin {
         .register_type::<Params>()
         .register_type::<Camera>()
         .register_type::<[f32; 3]>()
-        .insert_resource(Params {
-            count: 0,
-            size: WORKGROUP_SIZE as i32,
-            x: -(WORKGROUP_SIZE as i32),
-            y: 0,
-            spheres: 2,
-            ..default()
-        })
+        .insert_resource(Params::default())
         .insert_resource(Camera::create_camera())
         .insert_resource(Spheres::default_scene())
         .add_systems(Update, update_params.run_if(in_state(AppState::Running)))
@@ -156,6 +162,7 @@ fn update_params(mut params: ResMut<Params>, mut next_state: ResMut<NextState<Ap
         params.x = -(WORKGROUP_SIZE as i32);
         params.y = 0;
         params.count = 0;
+        params.seed += 1;
     }
 }
 

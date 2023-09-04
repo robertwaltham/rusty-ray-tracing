@@ -9,6 +9,8 @@ struct Params {
     x: i32,
     y: i32,
     sphere_count: i32,
+    seed: i32,
+    samples: i32,
 }
 
 @group(0) @binding(1)
@@ -37,6 +39,10 @@ struct Sphere {
 @group(0) @binding(3) 
 var<uniform> spheres: array<Sphere, 10>;
 
+// shamelessly copied from https://www.shadertoy.com/view/4ssXRX
+fn nrand(n: vec2<f32>) -> f32 {
+    return fract(sin(dot(n.xy, vec2(12.9898, 78.233))) * 43758.5453);
+}
 
 struct Ray {
     origin: vec3<f32>,
@@ -45,13 +51,6 @@ struct Ray {
 
 fn at(ray: Ray, t: f32) -> vec3<f32> {
     return ray.origin + (ray.direction * t);
-}
-
-fn ray_colour(ray: Ray) -> vec4<f32> {
-    let direction = normalize(ray.direction);
-    let value = (direction.y + 1.) / 2.;
-    let rgb = ((1.0 - value) * vec3<f32>(1., 1., 1.)) + (value * vec3<f32>(0.5, 0.7, 1.));
-    return vec4<f32>(rgb, 1.);
 }
 
 struct HitRecord {
@@ -117,9 +116,25 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_
 
     let pixel_center = camera.pixel00_loc + (f32(location.x) * camera.pixel_delta_u) + (f32(location.y) * camera.pixel_delta_v);
     let ray_direction = pixel_center - camera.camera_center;
-    let ray = Ray(camera.camera_center, ray_direction);
+    var color = vec4<f32>(0., 0., 0., 0.);
+    for (var i: i32 = 0; i < params.samples; i++) {
+        let ray = Ray(camera.camera_center, ray_direction + pixel_sample_square(vec2<f32>(location + i)));
+        color += ray_color(ray);
+    }
+    color /= f32(params.samples);
 
+    storageBarrier();
 
+    textureStore(texture, location, color);
+}
+
+fn pixel_sample_square(seed: vec2<f32>) -> vec3<f32> {
+    let px = -0.5 + nrand(seed);
+    let py = -0.5 + nrand(seed - 1.); // todo: refactor to give a better distribution
+    return (camera.pixel_delta_u * px) + (camera.pixel_delta_v * py);
+}
+
+fn ray_color(ray: Ray) -> vec4<f32> {
     var closest_hit = HitRecord();
     closest_hit.t = 10000.;
     var closest_sphere = Sphere();
@@ -140,10 +155,14 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_
         let normal_color = 0.5 * (closest_hit.normal + 1.);
         color = vec4<f32>(normal_color, 1.);
     } else {
-        color = ray_colour(ray);
+        color = background_color(ray);
     }
+    return color;
+}
 
-    storageBarrier();
-
-    textureStore(texture, location, color);
+fn background_color(ray: Ray) -> vec4<f32> {
+    let direction = normalize(ray.direction);
+    let value = (direction.y + 1.) / 2.;
+    let rgb = ((1.0 - value) * vec3<f32>(1., 1., 1.)) + (value * vec3<f32>(0.5, 0.7, 1.));
+    return vec4<f32>(rgb, 1.);
 }
