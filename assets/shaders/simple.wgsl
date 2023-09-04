@@ -166,46 +166,44 @@ fn ray_color(ray: Ray) -> vec4<f32> {
     var closest_hit = HitRecord();
 
     var hit_colours = array<vec4<f32>, 10>();
-    var j: i32 = 0;
-    for (;j < params.depth; j++) {
-        closest_hit.t = 10000.;
-        var closest_sphere = Sphere();
+    var hits = 0;
 
-        for (var i: i32 = 0; i < params.sphere_count; i++) {
-            let sphere = spheres[i];
-            let interval = vec2<f32>(0., closest_hit.t);
-            let hit = hit_sphere(sphere, ray, interval);
-
-            if hit.hit && hit.t < closest_hit.t {
-                closest_hit = hit;
-                closest_sphere = sphere;
-            }
-        }
-
-        if closest_hit.hit {
-            let normal_color = 0.5 * (closest_hit.normal + 1.);
-            hit_colours[j] = vec4<f32>(normal_color, 1.);
-
-            let direction = random_on_hemisphere(closest_hit.normal);
-            ray = Ray(closest_hit.point, direction);
-            // hit_colours[j] = vec4<f32>(0.5, 0.5, 0.5, 1.0);
-        } else {
-            break;
-        }
-
-        closest_hit = HitRecord();
-    }
-
-    var color = vec4<f32>();
+    // while hits < params.depth {
+    closest_hit.t = 10000.;
+    var closest_sphere = Sphere();
 
     for (var i: i32 = 0; i < params.sphere_count; i++) {
-        color += hit_colours[i] * pow(0.5, f32(j));
+        let sphere = spheres[i];
+        let interval = vec2<f32>(0., closest_hit.t);
+        let hit = hit_sphere(sphere, ray, interval);
+
+        if hit.hit && hit.t < closest_hit.t {
+            closest_hit = hit;
+            closest_sphere = sphere;
+        }
     }
 
-
     if closest_hit.hit {
-        // return hit_colours[0];
-        return vec4<f32>(0.5, 0.5, 0.5, 1.0);
+        let normal_color = 0.5 * (closest_hit.normal + 1.);
+        hit_colours[hits] = vec4<f32>(normal_color, 1.);
+
+        let direction = random_on_hemisphere(closest_hit.normal);
+        ray = Ray(closest_hit.point, direction);
+        hits += 1;
+    }
+    //     } else {
+    //         break;
+    //     }
+    //     closest_hit = HitRecord();
+    // }
+
+    var color = vec4<f32>(0., 0., 0., 1.);
+
+    if hits > 0 {
+        for (var i: i32 = 0; i < hits; i++) {
+            color += hit_colours[i] * pow(0.5, f32(hits));
+        }
+        return color;
     } else {
         return background_color(ray);
     }
