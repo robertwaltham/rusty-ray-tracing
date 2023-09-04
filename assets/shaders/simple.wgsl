@@ -62,7 +62,15 @@ struct HitRecord {
     hit: bool
 }
 
-fn hit_sphere(sphere: Sphere, ray: Ray, ray_tmin: f32, ray_tmax: f32) -> HitRecord {
+fn contains(interval: vec2<f32>, value: f32) -> bool {
+    return interval.x <= value && value <= interval.y;
+}
+
+fn surrounds(interval: vec2<f32>, value: f32) -> bool {
+    return interval.x < value && value < interval.y;
+}
+
+fn hit_sphere(sphere: Sphere, ray: Ray, interval: vec2<f32>) -> HitRecord {
 
     let origin_to_center = ray.origin - sphere.center;
     let a = dot(ray.direction, ray.direction);
@@ -76,9 +84,9 @@ fn hit_sphere(sphere: Sphere, ray: Ray, ray_tmin: f32, ray_tmax: f32) -> HitReco
 
     let sqrt_discriminant = sqrt(discriminant);
     var root = (-half_b - sqrt_discriminant) / a;
-    if root <= ray_tmin || ray_tmax <= root {
+    if !surrounds(interval, root) {
         root = (-half_b + sqrt_discriminant) / a;
-        if root <= ray_tmin || ray_tmax <= root {
+        if !surrounds(interval, root) {
             return HitRecord();
         }
     }
@@ -118,7 +126,8 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_
 
     for (var i: i32 = 0; i < params.sphere_count; i++) {
         let sphere = spheres[i];
-        let hit = hit_sphere(sphere, ray, 0., closest_hit.t);
+        let interval = vec2<f32>(0., closest_hit.t);
+        let hit = hit_sphere(sphere, ray, interval);
 
         if hit.hit && hit.t < closest_hit.t {
             closest_hit = hit;
