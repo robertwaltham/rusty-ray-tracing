@@ -163,10 +163,11 @@ fn pixel_sample_square() -> vec3<f32> {
 fn ray_color(ray: Ray) -> vec4<f32> {
 
     var ray = ray;
-    var color = vec4<f32>();
     var closest_hit = HitRecord();
 
-    for (var j: i32 = 0; j < params.depth; j++) {
+    var hit_colours = array<vec4<f32>, 10>();
+    var j: i32 = 0;
+    for (;j < params.depth; j++) {
         closest_hit.t = 10000.;
         var closest_sphere = Sphere();
 
@@ -182,12 +183,12 @@ fn ray_color(ray: Ray) -> vec4<f32> {
         }
 
         if closest_hit.hit {
-        // let normal_color = 0.5 * (closest_hit.normal + 1.);
-        // color = vec4<f32>(normal_color, 1.);
+            let normal_color = 0.5 * (closest_hit.normal + 1.);
+            hit_colours[j] = vec4<f32>(normal_color, 1.);
 
             let direction = random_on_hemisphere(closest_hit.normal);
             ray = Ray(closest_hit.point, direction);
-            color = 0.5 * background_color(ray);
+            // hit_colours[j] = vec4<f32>(0.5, 0.5, 0.5, 1.0);
         } else {
             break;
         }
@@ -195,8 +196,16 @@ fn ray_color(ray: Ray) -> vec4<f32> {
         closest_hit = HitRecord();
     }
 
+    var color = vec4<f32>();
+
+    for (var i: i32 = 0; i < params.sphere_count; i++) {
+        color += hit_colours[i] * pow(0.5, f32(j));
+    }
+
+
     if closest_hit.hit {
-        return color;
+        // return hit_colours[0];
+        return vec4<f32>(0.5, 0.5, 0.5, 1.0);
     } else {
         return background_color(ray);
     }
