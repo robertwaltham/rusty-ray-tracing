@@ -16,7 +16,6 @@ enum AppState {
 }
 
 const SIZE: (u32, u32) = (512, 512);
-const WORKGROUP_SIZE: u32 = 64; // TODO rename this
 const INIT_WORKGROUP_SIZE: u32 = 8;
 
 fn main() {

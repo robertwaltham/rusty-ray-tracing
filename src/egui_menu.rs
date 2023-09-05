@@ -30,6 +30,13 @@ fn ui_system(
 ) {
     let ctx = contexts.ctx_mut();
 
+    let ui_enabled = match state.get() {
+        AppState::Waiting => true,
+        AppState::Running => false,
+        AppState::Done => true,
+        AppState::Reset => true,
+    };
+
     egui::SidePanel::left("side_panel")
         .resizable(false)
         .min_width(PANEL_WIDTH)
@@ -69,20 +76,39 @@ fn ui_system(
                 }
             });
 
+            ui.set_enabled(ui_enabled);
+
             ui.allocate_space(egui::Vec2::new(1.0, 20.0));
 
             ui.heading("Rendering Controls");
 
             ui.horizontal(|ui| {
                 ui.label("sample count");
-                ui.add(egui::Slider::new(&mut params.samples, 1..=50).show_value(false));
+                ui.add(egui::Slider::new(&mut params.samples, 1..=200).show_value(false));
                 ui.label(format!("{}", params.samples));
             });
 
             ui.horizontal(|ui| {
                 ui.label("depth");
-                ui.add(egui::Slider::new(&mut params.depth, 1..=20).show_value(false));
+                ui.add(egui::Slider::new(&mut params.depth, 1..=100).show_value(false));
                 ui.label(format!("{}", params.depth));
+            });
+
+            ui.horizontal(|ui| {
+                ui.label("step size");
+                ui.add_enabled(
+                    params.x < 0, // todo: refactor this to be more clear of intent
+                    egui::Slider::from_get_set(6.0..=9.0, |v: Option<f64>| {
+                        if let Some(v) = v {
+                            params.size = v.exp2() as i32;
+                            params.x = -params.size;
+                        }
+                        (params.size as f64).log2()
+                    })
+                    .integer()
+                    .show_value(false),
+                );
+                ui.label(format!("{}", params.size));
             });
 
             ui.allocate_space(egui::Vec2::new(1.0, 20.0));

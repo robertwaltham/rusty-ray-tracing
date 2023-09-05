@@ -1,4 +1,4 @@
-use crate::{camera::Camera, AppState, INIT_WORKGROUP_SIZE, SIZE, WORKGROUP_SIZE};
+use crate::{camera::Camera, AppState, INIT_WORKGROUP_SIZE, SIZE};
 
 use bevy::{
     core::Zeroable,
@@ -53,8 +53,8 @@ impl Default for Params {
     fn default() -> Self {
         Params {
             count: 0,
-            size: WORKGROUP_SIZE as i32,
-            x: -(WORKGROUP_SIZE as i32),
+            size: 128,
+            x: -128,
             y: 0,
             spheres: 3,
             seed: 0,
@@ -150,17 +150,17 @@ fn update_render(mut commands: Commands, state: Extract<Res<State<AppState>>>) {
 }
 
 fn update_params(mut params: ResMut<Params>, mut next_state: ResMut<NextState<AppState>>) {
-    params.x += WORKGROUP_SIZE as i32;
+    params.x += params.size;
 
     if params.x >= SIZE.0 as i32 {
-        params.y += WORKGROUP_SIZE as i32;
+        params.y += params.size;
     }
     params.x = params.x % SIZE.0 as i32;
 
     params.count += 1;
-    if params.count > (SIZE.0 * SIZE.1) as i32 / (WORKGROUP_SIZE * WORKGROUP_SIZE) as i32 {
+    if params.count > (SIZE.0 * SIZE.1) as i32 / (params.size * params.size) {
         next_state.set(AppState::Done);
-        params.x = -(WORKGROUP_SIZE as i32);
+        params.x = -(params.size as i32);
         params.y = 0;
         params.count = 0;
         params.seed += 1;
@@ -338,6 +338,8 @@ impl render_graph::Node for ComputeShaderNode {
         let pipeline_cache = world.resource::<PipelineCache>();
         let pipeline = world.resource::<ComputeShaderPipeline>();
         let state = &world.resource::<RenderState>().state;
+        let window_size = &world.resource::<Params>().size;
+        let workgroup_size = (window_size / 8) as u32;
         let mut pass = render_context
             .command_encoder()
             .begin_compute_pass(&ComputePassDescriptor::default());
@@ -364,7 +366,7 @@ impl render_graph::Node for ComputeShaderNode {
                         .get_compute_pipeline(pipeline.update_pipeline)
                         .unwrap();
                     pass.set_pipeline(update_pipeline);
-                    pass.dispatch_workgroups(8, 8, 1); // TODO: match to WORKGROUP_SIZE
+                    pass.dispatch_workgroups(workgroup_size, workgroup_size, 1);
                 } else if state == &AppState::Reset {
                     let init_pipeline = pipeline_cache
                         .get_compute_pipeline(pipeline.init_pipeline)
