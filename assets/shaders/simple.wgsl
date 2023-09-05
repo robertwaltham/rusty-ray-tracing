@@ -41,12 +41,13 @@ struct Sphere {
 @group(0) @binding(3) 
 var<uniform> spheres: array<Sphere, 10>;
 
+
 // http://byteblacksmith.com/improvements-to-the-canonical-one-liner-glsl-rand-for-opengl-es-2-0/
 fn nrand() -> f32 {
-    let result = fract(sin(dot(seed.xy, vec2(12.9898, 78.233))) * 43758.5453);
-    seed += result;
-
-    return result;
+    seed += 1.;
+    var p3 = fract(vec3<f32>(seed.xyx) * .1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
 }
 fn nrand_vec3() -> vec3<f32> {
     return vec3<f32>(nrand(), nrand(), nrand());
@@ -147,10 +148,9 @@ fn init(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_wo
 fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_workgroups) num_workgroups: vec3<u32>) {
     var location = vec2<i32>(i32(invocation_id.x + u32(params.x)), i32(invocation_id.y + u32(params.y)));
     seed = vec2<f32>(location); // set initial random seed
-
     let pixel_center = camera.pixel00_loc + (f32(location.x) * camera.pixel_delta_u) + (f32(location.y) * camera.pixel_delta_v);
     let ray_direction = pixel_center - camera.camera_center;
-    var color = vec4<f32>(0., 0., 0., 0.);
+    var color = vec4<f32>(nrand(), 0., 0., 1.);
     for (var i: i32 = 0; i < params.samples; i++) {
         let ray = Ray(camera.camera_center, ray_direction + pixel_sample_square());
         color += ray_color(ray);
@@ -220,9 +220,9 @@ fn ray_color(ray: Ray) -> vec4<f32> {
 
     if has_hit {
         for (var i: i32 = 0; i < hits; i++) {
-            color += hit_colours[i] / pow(2., f32(i + 1));
+            color += hit_colours[i]; /// pow(2., f32(i + 1));
         }
-        return color;
+        return color / f32(hits);
     } else {
         return bg_color;
     }
