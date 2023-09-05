@@ -56,8 +56,8 @@ impl Default for Params {
             y: 0,
             spheres: 4,
             seed: 0,
-            samples: 10,
-            depth: 1,
+            samples: 25,
+            depth: 3,
         }
     }
 }
