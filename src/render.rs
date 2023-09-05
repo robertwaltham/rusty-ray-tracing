@@ -97,6 +97,15 @@ impl Spheres {
     }
 }
 
+#[derive(Resource, Debug, Default, Reflect, Clone)]
+pub struct RenderTime {
+    pub time: f32,
+    pub frames: i32,
+    pub min_frame: f32,
+    pub max_frame: f32,
+    pub avg_frame: f32,
+}
+
 pub struct ComputeShaderPlugin;
 impl Plugin for ComputeShaderPlugin {
     fn build(&self, app: &mut App) {
@@ -109,12 +118,20 @@ impl Plugin for ComputeShaderPlugin {
         .register_type::<RenderImage>()
         .register_type::<Params>()
         .register_type::<Camera>()
+        .register_type::<RenderTime>()
         .register_type::<[f32; 3]>()
         .insert_resource(Params::default())
         .insert_resource(Camera::create_camera())
         .insert_resource(Spheres::default_scene())
-        .add_systems(Update, update_params.run_if(in_state(AppState::Running)))
-        .add_systems(Last, post_reset.run_if(in_state(AppState::Reset)));
+        .insert_resource(RenderTime::default())
+        .add_systems(
+            Update,
+            (update_params, update_time).run_if(in_state(AppState::Running)),
+        )
+        .add_systems(
+            Last,
+            (post_reset, reset_time).run_if(in_state(AppState::Reset)),
+        );
 
         let render_app = app.sub_app_mut(RenderApp);
 
@@ -147,6 +164,27 @@ fn update_render(mut commands: Commands, state: Extract<Res<State<AppState>>>) {
     commands.insert_resource(RenderState {
         state: state.get().clone(),
     });
+}
+
+fn update_time(time: Res<Time>, mut render_time: ResMut<RenderTime>) {
+    let delta = time.delta_seconds();
+    render_time.time += delta;
+    render_time.frames += 1;
+    render_time.min_frame = std::cmp::min_by(render_time.min_frame, delta, |x, y| {
+        x.partial_cmp(y).unwrap()
+    });
+    render_time.max_frame = std::cmp::max_by(render_time.min_frame, delta, |x, y| {
+        x.partial_cmp(y).unwrap()
+    });
+    render_time.avg_frame = render_time.time / render_time.frames as f32;
+}
+
+fn reset_time(mut render_time: ResMut<RenderTime>) {
+    render_time.time = 0.;
+    render_time.frames = 0;
+    render_time.min_frame = 0.;
+    render_time.max_frame = 0.;
+    render_time.avg_frame = 0.;
 }
 
 fn update_params(mut params: ResMut<Params>, mut next_state: ResMut<NextState<AppState>>) {

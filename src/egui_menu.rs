@@ -2,7 +2,7 @@ use std::any::{self};
 
 use crate::{
     camera::Camera,
-    render::{Params, Spheres},
+    render::{Params, RenderTime, Spheres},
     AppState,
 };
 use bevy::{prelude::*, reflect::TypeInfo};
@@ -24,6 +24,7 @@ fn ui_system(
     mut next_state: ResMut<NextState<AppState>>,
     state: Res<State<AppState>>,
     camera: Res<Camera>,
+    time: Res<RenderTime>,
     mut params: ResMut<Params>,
     mut spheres: ResMut<Spheres>,
     type_registry: Res<AppTypeRegistry>,
@@ -160,6 +161,17 @@ fn ui_system(
 
             ui.heading("Camera");
             let camera_labels = data_for_resource(&type_registry, camera.clone());
+            for (name, value) in camera_labels.iter() {
+                ui.horizontal(|ui| {
+                    ui.label(name);
+                    ui.label(value);
+                });
+            }
+
+            ui.allocate_space(egui::Vec2::new(1.0, 20.0));
+
+            ui.heading("Time");
+            let camera_labels = data_for_resource(&type_registry, time.clone());
             for (name, value) in camera_labels.iter() {
                 ui.horizontal(|ui| {
                     ui.label(name);
