@@ -42,17 +42,30 @@ struct Sphere {
 var<uniform> spheres: array<Sphere, 10>;
 
 
+@group(0) @binding(4)
+var noise_texture: texture_storage_2d<rgba8unorm, read>;
+
+
 // https://www.shadertoy.com/view/4djSRW
+// fn nrand() -> f32 {
+//     seed += 1.;
+//     var p3 = fract(vec3<f32>(seed.xyx) * .1031);
+//     p3 += dot(p3, p3.yzx + 33.33);
+//     return fract((p3.x + p3.y) * p3.z);
+// }
+
 fn nrand() -> f32 {
-    seed += 1.;
-    var p3 = fract(vec3<f32>(seed.xyx) * .1031);
-    p3 += dot(p3, p3.yzx + 33.33);
-    return fract((p3.x + p3.y) * p3.z);
+    let pixel = textureLoad(noise_texture, seed);
+
+    seed.x = (seed.x + 1) % 512;
+    seed.y = (seed.y + 1) % 512;
+
+    return pixel.x;
 }
 fn nrand_vec3() -> vec3<f32> {
     return vec3<f32>(nrand(), nrand(), nrand());
 }
-var<workgroup> seed: vec2<f32>;
+var<workgroup> seed: vec2<i32>;
 
 fn rand_in_unit_sphere() -> vec3<f32> {
     while true {
@@ -147,7 +160,7 @@ fn init(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_wo
 @compute @workgroup_size(8, 8, 1)
 fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_workgroups) num_workgroups: vec3<u32>) {
     var location = vec2<i32>(i32(invocation_id.x + u32(params.x)), i32(invocation_id.y + u32(params.y)));
-    seed = vec2<f32>(location); // set initial random seed
+    seed = location; // set initial random seed
     let pixel_center = camera.pixel00_loc + (f32(location.x) * camera.pixel_delta_u) + (f32(location.y) * camera.pixel_delta_v);
     let ray_direction = pixel_center - camera.camera_center;
     var color = vec4<f32>(nrand(), 0., 0., 1.);
@@ -156,6 +169,8 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_
         color += ray_color(ray);
     }
     color /= f32(params.samples);
+
+
 
     storageBarrier();
 

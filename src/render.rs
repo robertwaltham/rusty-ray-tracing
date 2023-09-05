@@ -20,6 +20,11 @@ pub struct RenderImage {
     pub image: Handle<Image>,
 }
 
+#[derive(Resource, Clone, Deref, ExtractResource, Reflect)]
+pub struct NoiseImage {
+    pub image: Handle<Image>,
+}
+
 #[derive(Resource, Default)]
 struct RenderState {
     state: AppState,
@@ -89,6 +94,7 @@ impl Plugin for ComputeShaderPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
             ExtractResourcePlugin::<RenderImage>::default(),
+            ExtractResourcePlugin::<NoiseImage>::default(),
             ExtractResourcePlugin::<Params>::default(),
             ExtractResourcePlugin::<Camera>::default(),
             ExtractResourcePlugin::<Spheres>::default(),
@@ -254,6 +260,16 @@ impl FromWorld for ComputeShaderPipeline {
                             },
                             count: None,
                         },
+                        BindGroupLayoutEntry {
+                            binding: 4,
+                            visibility: ShaderStages::COMPUTE,
+                            ty: BindingType::StorageTexture {
+                                access: StorageTextureAccess::ReadOnly,
+                                format: TextureFormat::Rgba8Unorm,
+                                view_dimension: TextureViewDimension::D2,
+                            },
+                            count: None,
+                        },
                     ],
                 });
         let shader = world.resource::<AssetServer>().load("shaders/simple.wgsl");
@@ -287,20 +303,23 @@ fn queue_bind_group(
     mut commands: Commands,
     pipeline: Res<ComputeShaderPipeline>,
     gpu_images: Res<RenderAssets<Image>>,
-    game_of_life_image: Res<RenderImage>,
+    output_image: Res<RenderImage>,
+    noise_image: Res<NoiseImage>,
     render_device: Res<RenderDevice>,
     params_buffer: Res<ParamsBuffer>,
     camera_buffer: Res<CameraBuffer>,
     spheres_buffer: Res<SphereBuffer>,
 ) {
-    let view = &gpu_images[&game_of_life_image.image];
+    let output_view = &gpu_images[&output_image.image];
+    let noise_view = &gpu_images[&noise_image.image];
+
     let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
         label: None,
         layout: &pipeline.texture_bind_group_layout,
         entries: &[
             BindGroupEntry {
                 binding: 0,
-                resource: BindingResource::TextureView(&view.texture_view),
+                resource: BindingResource::TextureView(&output_view.texture_view),
             },
             BindGroupEntry {
                 binding: 1,
@@ -313,6 +332,10 @@ fn queue_bind_group(
             BindGroupEntry {
                 binding: 3,
                 resource: spheres_buffer.buffer.as_ref().unwrap().as_entire_binding(),
+            },
+            BindGroupEntry {
+                binding: 4,
+                resource: BindingResource::TextureView(&noise_view.texture_view),
             },
         ],
     });

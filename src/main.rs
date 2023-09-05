@@ -1,5 +1,6 @@
 use bevy::{prelude::*, render::render_resource::*};
-use render::{ComputeShaderPlugin, RenderImage};
+use rand::prelude::*;
+use render::{ComputeShaderPlugin, NoiseImage, RenderImage};
 
 pub mod bevy_menu;
 pub mod camera;
@@ -78,6 +79,31 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         .insert(Name::new("Render Sprite"));
 
     commands.insert_resource(RenderImage {
+        image: image_handle.clone(),
+    });
+
+    let mut noise_image = Image::new_fill(
+        Extent3d {
+            width: SIZE.0,
+            height: SIZE.1,
+            depth_or_array_layers: 1,
+        },
+        TextureDimension::D2,
+        &[0, 0, 0, 255],
+        TextureFormat::Rgba8Unorm,
+    );
+
+    for current_pixel in noise_image.data.chunks_exact_mut(4) {
+        let random_pixel: [u8; 4] = [random(), random(), random(), 255];
+        current_pixel.copy_from_slice(&random_pixel);
+    }
+
+    noise_image.texture_descriptor.usage =
+        TextureUsages::COPY_DST | TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING;
+
+    let image_handle: Handle<Image> = images.add(noise_image);
+
+    commands.insert_resource(NoiseImage {
         image: image_handle.clone(),
     });
 }
