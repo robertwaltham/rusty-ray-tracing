@@ -60,7 +60,7 @@ fn nrand() -> f32 {
     seed.x = (seed.x + 1) % 512;
     seed.y = (seed.y + 1) % 512;
 
-    return pixel.x;
+    return ((pixel.x + pixel.y + pixel.z) / 1.5) - 1.;
 }
 fn nrand_vec3() -> vec3<f32> {
     return vec3<f32>(nrand(), nrand(), nrand());
@@ -68,13 +68,16 @@ fn nrand_vec3() -> vec3<f32> {
 var<workgroup> seed: vec2<i32>;
 
 fn rand_in_unit_sphere() -> vec3<f32> {
-    while true {
+
+    // bail out after 100 reps
+    for (var i = 0; i < 100; i++) {
         let v = nrand_vec3();
         if v.x * v.x + v.y * v.y + v.z * v.z < 1. {
             return v;
         }
     }
-    return vec3<f32>();
+
+    return nrand_vec3();
 }
 
 fn random_on_hemisphere(normal: vec3<f32>) -> vec3<f32> {
