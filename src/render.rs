@@ -53,8 +53,8 @@ impl Default for Params {
     fn default() -> Self {
         Params {
             count: 0,
-            size: 128,
-            x: -128,
+            size: 512,
+            x: 0,
             y: 0,
             spheres: 3,
             seed: 0,
@@ -104,6 +104,7 @@ pub struct RenderTime {
     pub min_frame: f32,
     pub max_frame: f32,
     pub avg_frame: f32,
+    pub avg_fps: f32,
 }
 
 pub struct ComputeShaderPlugin;
@@ -177,6 +178,7 @@ fn update_time(time: Res<Time>, mut render_time: ResMut<RenderTime>) {
         x.partial_cmp(y).unwrap()
     });
     render_time.avg_frame = render_time.time / render_time.frames as f32;
+    render_time.avg_fps = 1. / render_time.avg_frame;
 }
 
 fn reset_time(mut render_time: ResMut<RenderTime>) {
@@ -185,24 +187,25 @@ fn reset_time(mut render_time: ResMut<RenderTime>) {
     render_time.min_frame = 0.;
     render_time.max_frame = 0.;
     render_time.avg_frame = 0.;
+    render_time.avg_fps = 0.;
 }
 
 fn update_params(mut params: ResMut<Params>, mut next_state: ResMut<NextState<AppState>>) {
-    params.x += params.size;
+    // params.x += params.size;
 
-    if params.x >= SIZE.0 as i32 {
-        params.y += params.size;
-    }
-    params.x = params.x % SIZE.0 as i32;
+    // if params.x >= SIZE.0 as i32 {
+    //     params.y += params.size;
+    // }
+    // params.x = params.x % SIZE.0 as i32;
 
-    params.count += 1;
-    if params.count > (SIZE.0 * SIZE.1) as i32 / (params.size * params.size) {
-        next_state.set(AppState::Done);
-        params.x = -(params.size as i32);
-        params.y = 0;
-        params.count = 0;
-        params.seed += 1;
-    }
+    // params.count += 1;
+    // if params.count > (SIZE.0 * SIZE.1) as i32 / (params.size * params.size) {
+    //     // next_state.set(AppState::Done);
+    //     params.x = -(params.size as i32);
+    //     params.y = 0;
+    //     params.count = 0;
+    //     params.seed += 1;
+    // }
 }
 
 #[derive(Resource)]

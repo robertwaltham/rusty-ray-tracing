@@ -77,7 +77,7 @@ fn ui_system(
                 }
             });
 
-            ui.set_enabled(ui_enabled);
+            // ui.set_enabled(ui_enabled);
 
             ui.allocate_space(egui::Vec2::new(1.0, 20.0));
 
@@ -95,22 +95,22 @@ fn ui_system(
                 ui.label(format!("{}", params.depth));
             });
 
-            ui.horizontal(|ui| {
-                ui.label("step size");
-                ui.add_enabled(
-                    params.x < 0, // todo: refactor this to be more clear of intent
-                    egui::Slider::from_get_set(6.0..=9.0, |v: Option<f64>| {
-                        if let Some(v) = v {
-                            params.size = v.exp2() as i32;
-                            params.x = -params.size;
-                        }
-                        (params.size as f64).log2()
-                    })
-                    .integer()
-                    .show_value(false),
-                );
-                ui.label(format!("{}", params.size));
-            });
+            // ui.horizontal(|ui| {
+            //     ui.label("step size");
+            //     ui.add_enabled(
+            //         params.x < 0, // todo: refactor this to be more clear of intent
+            //         egui::Slider::from_get_set(6.0..=9.0, |v: Option<f64>| {
+            //             if let Some(v) = v {
+            //                 params.size = v.exp2() as i32;
+            //                 params.x = -params.size;
+            //             }
+            //             (params.size as f64).log2()
+            //         })
+            //         .integer()
+            //         .show_value(false),
+            //     );
+            //     ui.label(format!("{}", params.size));
+            // });
 
             ui.allocate_space(egui::Vec2::new(1.0, 20.0));
 
