@@ -81,6 +81,7 @@ fn at(ray: Ray, t: f32) -> vec3<f32> {
 struct HitRecord {
     point: vec3<f32>,
     normal: vec3<f32>,
+    color: vec4<f32>,
     t: f32,
     front_face: bool,
     hit: bool
@@ -123,7 +124,11 @@ fn hit_sphere(sphere: Sphere, ray: Ray, interval: vec2<f32>) -> HitRecord {
         normal = normal * -1.;
     }
 
-    return HitRecord(point, normal, root, front_face, true);
+    // todo: sphere color calc
+    let normal_color = vec4<f32>(0.5 * (normal + 1.), 1.);
+    // let normal_color = vec4<f32>(0.5, 0.5, 0.5, 1.);
+
+    return HitRecord(point, normal, normal_color, root, front_face, true);
 }
 
 
@@ -160,52 +165,62 @@ fn pixel_sample_square() -> vec3<f32> {
     return (camera.pixel_delta_u * px) + (camera.pixel_delta_v * py);
 }
 
-fn ray_color(ray: Ray) -> vec4<f32> {
+fn test_hit_spheres(ray: Ray) -> HitRecord {
 
-    var ray = ray;
     var closest_hit = HitRecord();
-
-    var hit_colours = array<vec4<f32>, 10>();
-    var hits = 0;
-
-    // while hits < params.depth {
     closest_hit.t = 10000.;
-    var closest_sphere = Sphere();
 
     for (var i: i32 = 0; i < params.sphere_count; i++) {
         let sphere = spheres[i];
-        let interval = vec2<f32>(0., closest_hit.t);
+        let interval = vec2<f32>(0.1, closest_hit.t);
         let hit = hit_sphere(sphere, ray, interval);
 
         if hit.hit && hit.t < closest_hit.t {
             closest_hit = hit;
-            closest_sphere = sphere;
         }
     }
 
-    if closest_hit.hit {
-        let normal_color = 0.5 * (closest_hit.normal + 1.);
-        hit_colours[hits] = vec4<f32>(normal_color, 1.);
+    return closest_hit;
+}
 
-        let direction = random_on_hemisphere(closest_hit.normal);
-        ray = Ray(closest_hit.point, direction);
-        hits += 1;
+fn ray_color(ray: Ray) -> vec4<f32> {
+
+    var ray = ray;
+
+    var hit_colours = array<vec4<f32>, 10>();
+    var hits = 0;
+
+    let bg_color = background_color(ray);
+
+    while hits < params.depth {
+        let closest_hit = test_hit_spheres(ray);
+
+        if closest_hit.hit {
+            hit_colours[hits] = closest_hit.color;
+
+            let direction = random_on_hemisphere(closest_hit.normal);
+            ray = Ray(closest_hit.point, direction);
+            hits += 1;
+        } else {
+
+            // if hits > 0 {
+            //     hit_colours[hits] = bg_color;
+            //     hits += 1;
+            // }
+
+            break;
+        }
     }
-    //     } else {
-    //         break;
-    //     }
-    //     closest_hit = HitRecord();
-    // }
 
     var color = vec4<f32>(0., 0., 0., 1.);
 
     if hits > 0 {
         for (var i: i32 = 0; i < hits; i++) {
-            color += hit_colours[i] * pow(0.5, f32(hits));
+            color += hit_colours[i] / pow(2., f32(i + 1));
         }
         return color;
     } else {
-        return background_color(ray);
+        return bg_color;
     }
 }
 

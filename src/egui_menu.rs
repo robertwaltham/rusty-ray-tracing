@@ -1,15 +1,14 @@
 use std::any::{self};
 
-use bevy::{prelude::*, reflect::TypeInfo};
-use bevy_egui::{
-    egui::{self, Button, FontId, RichText},
-    EguiContexts, EguiPlugin,
-};
-
 use crate::{
     camera::Camera,
     render::{Params, Spheres},
     AppState,
+};
+use bevy::{prelude::*, reflect::TypeInfo};
+use bevy_egui::{
+    egui::{self, Button, FontId, RichText},
+    EguiContexts, EguiPlugin,
 };
 
 const PANEL_WIDTH: f32 = 200.;
@@ -99,12 +98,16 @@ fn ui_system(
                 for i in 0..params.spheres {
                     ui.label(format!("{}", i));
                     let labels = ["x", "y", "z", "r"];
+                    let ranges = [-1.0..=1.0, -1.0..=1.0, -1.0..=1.0, 0.0..=100.];
 
                     for j in 0..4 {
                         ui.horizontal(|ui| {
                             ui.add(
-                                egui::Slider::new(&mut spheres.spheres[i as usize][j], -1.0..=1.0)
-                                    .text(labels[j]),
+                                egui::Slider::new(
+                                    &mut spheres.spheres[i as usize][j],
+                                    ranges[j].clone(),
+                                )
+                                .text(labels[j]),
                             );
                         });
                     }

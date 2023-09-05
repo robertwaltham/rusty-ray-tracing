@@ -56,7 +56,7 @@ impl Default for Params {
             size: WORKGROUP_SIZE as i32,
             x: -(WORKGROUP_SIZE as i32),
             y: 0,
-            spheres: 2,
+            spheres: 3,
             seed: 0,
             samples: 10,
             depth: 1,
@@ -92,6 +92,7 @@ impl Spheres {
         let mut spheres = Spheres::default();
         spheres.spheres[0] = [-0.5, 0., -1., 0.5];
         spheres.spheres[1] = [0.5, 0., -1., 0.25];
+        spheres.spheres[2] = [0., -100.5, -1., 100.];
         spheres
     }
 }
