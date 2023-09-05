@@ -24,7 +24,7 @@ fn ui_system(
     mut contexts: EguiContexts,
     mut next_state: ResMut<NextState<AppState>>,
     state: Res<State<AppState>>,
-    camera: Res<Camera>,
+    mut camera: ResMut<Camera>,
     time: Res<RenderTime>,
     mut params: ResMut<Params>,
     mut spheres: ResMut<Spheres>,
@@ -123,17 +123,31 @@ fn ui_system(
                     ui.add(egui::Slider::new(&mut params.spheres, 1..=10));
                 });
 
-                for i in 0..params.spheres {
+                for i in 0..params.spheres / 2 {
                     ui.label(format!("{}", i));
+
                     let labels = ["x", "y", "z", "r"];
-                    let ranges = [-1.0..=1.0, -1.0..=1.0, -1.0..=1.0, 0.0..=100.];
+                    let ranges = [-2.0..=2.0, -2.0..=2.0, -2.0..=0., 0.0..=1.0];
 
                     for j in 0..4 {
                         ui.horizontal(|ui| {
                             ui.add(
                                 egui::Slider::new(
-                                    &mut spheres.spheres[i as usize][j],
+                                    &mut spheres.spheres[(i * 2) as usize][j],
                                     ranges[j].clone(),
+                                )
+                                .text(labels[j]),
+                            );
+                        });
+                    }
+
+                    let labels = ["r", "g", "b"];
+                    for j in 0..3 {
+                        ui.horizontal(|ui| {
+                            ui.add(
+                                egui::Slider::new(
+                                    &mut spheres.spheres[((2 * i) + 1) as usize][j],
+                                    0.0..=1.0,
                                 )
                                 .text(labels[j]),
                             );
@@ -149,14 +163,14 @@ fn ui_system(
         .show(ctx, |ui| {
             ui.allocate_space(egui::Vec2::new(1.0, 20.0));
 
-            ui.heading("Params");
-            let param_labels = data_for_resource(&type_registry, params.clone());
-            for (name, value) in param_labels.iter() {
-                ui.horizontal(|ui| {
-                    ui.label(name);
-                    ui.label(value);
-                });
-            }
+            // ui.heading("Params");
+            // let param_labels = data_for_resource(&type_registry, params.clone());
+            // for (name, value) in param_labels.iter() {
+            //     ui.horizontal(|ui| {
+            //         ui.label(name);
+            //         ui.label(value);
+            //     });
+            // }
 
             ui.allocate_space(egui::Vec2::new(1.0, 20.0));
 
@@ -169,14 +183,21 @@ fn ui_system(
                 });
             }
 
-            ui.allocate_space(egui::Vec2::new(1.0, 20.0));
+            ui.allocate_space(egui::Vec2::new(1.0, 10.0));
+            ui.label("Camera Center");
 
-            ui.heading("Time");
-            let camera_labels = data_for_resource(&type_registry, time.clone());
-            for (name, value) in camera_labels.iter() {
+            let labels = ["x", "y", "z"];
+            for j in 0..3 {
                 ui.horizontal(|ui| {
-                    ui.label(name);
-                    ui.label(value);
+                    ui.add(
+                        egui::Slider::from_get_set(-1.0..=1.0, |v: Option<f64>| {
+                            if let Some(v) = v {
+                                camera.camera_center[j] = v as f32;
+                            }
+                            camera.camera_center[j] as f64
+                        })
+                        .text(labels[j]),
+                    );
                 });
             }
 
@@ -185,6 +206,18 @@ fn ui_system(
                     "fork me on github",
                     "https://github.com/robertwaltham/rusty-ray-tracing/",
                 ));
+
+                ui.allocate_space(egui::Vec2::new(1.0, 20.0));
+
+                let camera_labels = data_for_resource(&type_registry, time.clone());
+                for (name, value) in camera_labels.iter() {
+                    ui.horizontal(|ui| {
+                        ui.label(name);
+                        ui.label(value);
+                    });
+                }
+
+                ui.heading("Time");
             });
         });
 }

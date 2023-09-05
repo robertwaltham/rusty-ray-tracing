@@ -42,7 +42,7 @@ struct Sphere {
 var<uniform> spheres: array<Sphere, 10>;
 
 
-// http://byteblacksmith.com/improvements-to-the-canonical-one-liner-glsl-rand-for-opengl-es-2-0/
+// https://www.shadertoy.com/view/4djSRW
 fn nrand() -> f32 {
     seed += 1.;
     var p3 = fract(vec3<f32>(seed.xyx) * .1031);
@@ -173,9 +173,9 @@ fn test_hit_spheres(ray: Ray) -> HitRecord {
     var closest_hit = HitRecord();
     closest_hit.t = 10000.;
 
-    for (var i: i32 = 0; i < params.sphere_count; i++) {
+    for (var i: i32 = 0; i < params.sphere_count / 2; i++) {
         let sphere = spheres[i];
-        let interval = vec2<f32>(0.1, closest_hit.t);
+        let interval = vec2<f32>(0.01, closest_hit.t);
         let hit = hit_sphere(sphere, ray, interval);
 
         if hit.hit && hit.t < closest_hit.t {

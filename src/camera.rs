@@ -12,19 +12,19 @@ use bytemuck::Pod;
 )]
 #[repr(C)]
 pub struct Camera {
-    camera_center: [f32; 3],
+    pub camera_center: [f32; 3],
     _padding1: u32, // https://stackoverflow.com/a/75525055
-    viewport_u: [f32; 3],
+    pub viewport_u: [f32; 3],
     _padding2: u32,
-    viewport_v: [f32; 3],
+    pub viewport_v: [f32; 3],
     _padding3: u32,
-    pixel_delta_u: [f32; 3],
+    pub pixel_delta_u: [f32; 3],
     _padding4: u32,
-    pixel_delta_v: [f32; 3],
+    pub pixel_delta_v: [f32; 3],
     _padding5: u32,
-    viewport_upper_left: [f32; 3],
+    pub viewport_upper_left: [f32; 3],
     _padding6: u32,
-    pixel00_loc: [f32; 3],
+    pub pixel00_loc: [f32; 3],
     _padding7: u32,
 }
 

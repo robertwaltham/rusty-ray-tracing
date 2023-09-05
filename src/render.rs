@@ -13,7 +13,7 @@ use bevy::{
     },
 };
 use bytemuck::{bytes_of, Pod};
-use std::borrow::Cow;
+use std::{borrow::Cow, collections::VecDeque};
 
 #[derive(Resource, Clone, Deref, ExtractResource, Reflect)]
 pub struct RenderImage {
@@ -80,6 +80,8 @@ pub struct RenderTime {
     pub max_frame: f32,
     pub avg_frame: f32,
     pub avg_fps: f32,
+    pub avg_fps_10: f32,
+    pub _last_10: VecDeque<f32>,
 }
 
 pub struct ComputeShaderPlugin;
@@ -154,6 +156,14 @@ fn update_time(time: Res<Time>, mut render_time: ResMut<RenderTime>) {
     });
     render_time.avg_frame = render_time.time / render_time.frames as f32;
     render_time.avg_fps = 1. / render_time.avg_frame;
+    render_time._last_10.push_front(delta);
+    if render_time._last_10.len() > 11 {
+        render_time._last_10.pop_back();
+    }
+
+    render_time.avg_fps_10 = 1.
+        / (render_time._last_10.iter().fold(0., |acc, v| acc + v)
+            / render_time._last_10.len() as f32);
 }
 
 fn reset_time(mut render_time: ResMut<RenderTime>) {
@@ -163,6 +173,8 @@ fn reset_time(mut render_time: ResMut<RenderTime>) {
     render_time.max_frame = 0.;
     render_time.avg_frame = 0.;
     render_time.avg_fps = 0.;
+    render_time.avg_fps_10 = 0.;
+    render_time._last_10.clear();
 }
 
 // fn update_params(mut params: ResMut<Params>, mut next_state: ResMut<NextState<AppState>>) {
