@@ -35,6 +35,7 @@ var<uniform> camera: Camera;
 struct Sphere {
     center: vec3<f32>,
     radius: f32,
+    color: vec4<f32>,
 }
 
 @group(0) @binding(3) 
@@ -42,8 +43,10 @@ var<uniform> spheres: array<Sphere, 10>;
 
 // http://byteblacksmith.com/improvements-to-the-canonical-one-liner-glsl-rand-for-opengl-es-2-0/
 fn nrand() -> f32 {
-    seed += 1.;
-    return fract(sin(dot(seed.xy, vec2(12.9898, 78.233))) * 43758.5453);
+    let result = fract(sin(dot(seed.xy, vec2(12.9898, 78.233))) * 43758.5453);
+    seed += result;
+
+    return result;
 }
 fn nrand_vec3() -> vec3<f32> {
     return vec3<f32>(nrand(), nrand(), nrand());
@@ -125,10 +128,10 @@ fn hit_sphere(sphere: Sphere, ray: Ray, interval: vec2<f32>) -> HitRecord {
     }
 
     // todo: sphere color calc
-    let normal_color = vec4<f32>(0.5 * (normal + 1.), 1.);
+    // let normal_color = vec4<f32>(0.5 * (normal + 1.), 1.);
     // let normal_color = vec4<f32>(0.5, 0.5, 0.5, 1.);
 
-    return HitRecord(point, normal, normal_color, root, front_face, true);
+    return HitRecord(point, normal, sphere.color, root, front_face, true);
 }
 
 
@@ -191,7 +194,7 @@ fn ray_color(ray: Ray) -> vec4<f32> {
     var hits = 0;
 
     let bg_color = background_color(ray);
-
+    var has_hit = false;
     while hits < params.depth {
         let closest_hit = test_hit_spheres(ray);
 
@@ -201,12 +204,13 @@ fn ray_color(ray: Ray) -> vec4<f32> {
             let direction = random_on_hemisphere(closest_hit.normal);
             ray = Ray(closest_hit.point, direction);
             hits += 1;
+            has_hit = true;
         } else {
 
-            // if hits > 0 {
-            //     hit_colours[hits] = bg_color;
-            //     hits += 1;
-            // }
+            if hits > 0 {
+                hit_colours[hits] = bg_color;
+                hits += 1;
+            }
 
             break;
         }
@@ -214,7 +218,7 @@ fn ray_color(ray: Ray) -> vec4<f32> {
 
     var color = vec4<f32>(0., 0., 0., 1.);
 
-    if hits > 0 {
+    if has_hit {
         for (var i: i32 = 0; i < hits; i++) {
             color += hit_colours[i] / pow(2., f32(i + 1));
         }

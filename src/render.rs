@@ -54,7 +54,7 @@ impl Default for Params {
             size: 512,
             x: 0,
             y: 0,
-            spheres: 4,
+            spheres: 8,
             seed: 0,
             samples: 25,
             depth: 3,
