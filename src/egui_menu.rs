@@ -2,7 +2,8 @@ use std::any::{self};
 
 use crate::{
     camera::Camera,
-    render::{Params, RenderTime, Spheres},
+    collidables::Spheres,
+    render::{Params, RenderTime},
     AppState,
 };
 use bevy::{prelude::*, reflect::TypeInfo};
@@ -31,12 +32,12 @@ fn ui_system(
 ) {
     let ctx = contexts.ctx_mut();
 
-    let ui_enabled = match state.get() {
-        AppState::Waiting => true,
-        AppState::Running => false,
-        AppState::Done => true,
-        AppState::Reset => true,
-    };
+    // let ui_enabled = match state.get() {
+    //     AppState::Waiting => true,
+    //     AppState::Running => false,
+    //     AppState::Done => true,
+    //     AppState::Reset => true,
+    // };
 
     egui::SidePanel::left("side_panel")
         .resizable(false)

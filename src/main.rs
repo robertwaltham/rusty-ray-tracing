@@ -3,6 +3,7 @@ use render::{ComputeShaderPlugin, RenderImage};
 
 pub mod bevy_menu;
 pub mod camera;
+pub mod collidables;
 pub mod egui_menu;
 pub mod render;
 

@@ -1,4 +1,4 @@
-use crate::{camera::Camera, AppState, INIT_WORKGROUP_SIZE, SIZE};
+use crate::{camera::Camera, collidables::*, AppState, INIT_WORKGROUP_SIZE, SIZE};
 
 use bevy::{
     core::Zeroable,
@@ -14,8 +14,6 @@ use bevy::{
 };
 use bytemuck::{bytes_of, Pod};
 use std::borrow::Cow;
-
-const MAX_SPHERES: usize = 10;
 
 #[derive(Resource, Clone, Deref, ExtractResource, Reflect)]
 pub struct RenderImage {
@@ -56,7 +54,7 @@ impl Default for Params {
             size: 512,
             x: 0,
             y: 0,
-            spheres: 3,
+            spheres: 4,
             seed: 0,
             samples: 10,
             depth: 1,
@@ -72,29 +70,6 @@ struct ParamsBuffer {
 #[derive(Resource, Debug)]
 struct CameraBuffer {
     buffer: Option<Buffer>,
-}
-
-#[derive(Resource, Debug)]
-struct SphereBuffer {
-    buffer: Option<Buffer>,
-}
-
-#[derive(
-    ShaderType, Pod, Zeroable, Clone, Copy, Resource, Reflect, ExtractResource, Default, Debug,
-)]
-#[repr(C)]
-pub struct Spheres {
-    pub spheres: [[f32; 4]; MAX_SPHERES],
-}
-
-impl Spheres {
-    fn default_scene() -> Self {
-        let mut spheres = Spheres::default();
-        spheres.spheres[0] = [-0.5, 0., -1., 0.5];
-        spheres.spheres[1] = [0.5, 0., -1., 0.25];
-        spheres.spheres[2] = [0., -100.5, -1., 100.];
-        spheres
-    }
 }
 
 #[derive(Resource, Debug, Default, Reflect, Clone)]
@@ -127,7 +102,7 @@ impl Plugin for ComputeShaderPlugin {
         .insert_resource(RenderTime::default())
         .add_systems(
             Update,
-            (update_params, update_time).run_if(in_state(AppState::Running)),
+            (update_time, update_spheres).run_if(in_state(AppState::Running)),
         )
         .add_systems(
             Last,
@@ -190,23 +165,23 @@ fn reset_time(mut render_time: ResMut<RenderTime>) {
     render_time.avg_fps = 0.;
 }
 
-fn update_params(mut params: ResMut<Params>, mut next_state: ResMut<NextState<AppState>>) {
-    // params.x += params.size;
+// fn update_params(mut params: ResMut<Params>, mut next_state: ResMut<NextState<AppState>>) {
+// params.x += params.size;
 
-    // if params.x >= SIZE.0 as i32 {
-    //     params.y += params.size;
-    // }
-    // params.x = params.x % SIZE.0 as i32;
+// if params.x >= SIZE.0 as i32 {
+//     params.y += params.size;
+// }
+// params.x = params.x % SIZE.0 as i32;
 
-    // params.count += 1;
-    // if params.count > (SIZE.0 * SIZE.1) as i32 / (params.size * params.size) {
-    //     // next_state.set(AppState::Done);
-    //     params.x = -(params.size as i32);
-    //     params.y = 0;
-    //     params.count = 0;
-    //     params.seed += 1;
-    // }
-}
+// params.count += 1;
+// if params.count > (SIZE.0 * SIZE.1) as i32 / (params.size * params.size) {
+//     // next_state.set(AppState::Done);
+//     params.x = -(params.size as i32);
+//     params.y = 0;
+//     params.count = 0;
+//     params.seed += 1;
+// }
+// }
 
 #[derive(Resource)]
 pub struct ComputeShaderPipeline {
