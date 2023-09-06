@@ -47,42 +47,51 @@ var noise_texture: texture_storage_2d<rgba8unorm, read>;
 
 
 // https://www.shadertoy.com/view/4djSRW
-// fn nrand() -> f32 {
-//     seed += 1.;
-//     var p3 = fract(vec3<f32>(seed.xyx) * .1031);
+// fn nrand(r: ptr<function,vec2<i32>>) -> f32 {
+//     (*r).x = ((*r).x + 1) % 512;
+//     if (*r).x == 0 {
+//         (*r).y = ((*r).y + 1) % 512;
+//     }
+//     var p3 = fract(vec3<f32>((*r).xyx) * .1031);
 //     p3 += dot(p3, p3.yzx + 33.33);
-//     return fract((p3.x + p3.y) * p3.z);
+//     return (fract((p3.x + p3.y) * p3.z) * 2.) - 0.5;
 // }
 
-fn nrand() -> f32 {
-    let pixel = textureLoad(noise_texture, seed);
 
-    seed.x = (seed.x + 1) % 512;
-    seed.y = (seed.y + 1) % 512;
+fn nrand(r: ptr<function,vec2<i32>>) -> f32 {
+    let pixel = textureLoad(noise_texture, *r);
+
+    (*r).x = ((*r).x + 1) % 512;
+    if (*r).x == 0 {
+        (*r).y = ((*r).y + 1) % 512;
+    }
 
     return ((pixel.x + pixel.y + pixel.z) / 1.5) - 1.;
 }
-fn nrand_vec3() -> vec3<f32> {
-    return vec3<f32>(nrand(), nrand(), nrand());
-}
-var<workgroup> seed: vec2<i32>;
 
-fn rand_in_unit_sphere() -> vec3<f32> {
+fn nrand_vec3(r: ptr<function,vec2<i32>>) -> vec3<f32> {
+    let x = nrand(r);
+    let y = nrand(r);
+    let z = nrand(r);
+    return vec3<f32>(x, y, z);
+}
+
+fn rand_in_unit_sphere(r: ptr<function,vec2<i32>>) -> vec3<f32> {
 
     // bail out after 100 reps
-    for (var i = 0; i < 100; i++) {
-        let v = nrand_vec3();
-        if v.x * v.x + v.y * v.y + v.z * v.z < 1. {
-            return v;
-        }
-    }
+    // for (var i = 0; i < 100; i++) {
+    //     let v = nrand_vec3(r);
+    //     if v.x * v.x + v.y * v.y + v.z * v.z < 1.001 {
+    //         return v;
+    //     }
+    // }
 
-    return nrand_vec3();
+    return nrand_vec3(r);
 }
 
-fn random_on_hemisphere(normal: vec3<f32>) -> vec3<f32> {
-    let on_unit_sphere = rand_in_unit_sphere();
-    if dot(normalize(on_unit_sphere), normal) > 0.0 {
+fn random_on_hemisphere(normal: vec3<f32>, r: ptr<function,vec2<i32>>) -> vec3<f32> {
+    let on_unit_sphere = normalize(rand_in_unit_sphere(r));
+    if dot(on_unit_sphere, normal) > 0.0 {
         return on_unit_sphere;
     } else {
         return -on_unit_sphere;
@@ -144,11 +153,11 @@ fn hit_sphere(sphere: Sphere, ray: Ray, interval: vec2<f32>) -> HitRecord {
         normal = normal * -1.;
     }
 
-    // todo: sphere color calc
-    // let normal_color = vec4<f32>(0.5 * (normal + 1.), 1.);
-    // let normal_color = vec4<f32>(0.5, 0.5, 0.5, 1.);
+    // let color = vec4<f32>(0.5 * (normal + 1.), 1.);
+    // let color = vec4<f32>(0.5, 0.5, 0.5, 1.);
+    let color = sphere.color;
 
-    return HitRecord(point, normal, sphere.color, root, front_face, true);
+    return HitRecord(point, normal, color, root, front_face, true);
 }
 
 
@@ -163,27 +172,25 @@ fn init(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_wo
 @compute @workgroup_size(8, 8, 1)
 fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_workgroups) num_workgroups: vec3<u32>) {
     var location = vec2<i32>(i32(invocation_id.x + u32(params.x)), i32(invocation_id.y + u32(params.y)));
-    seed = location; // set initial random seed
+
+    var seed = vec2<i32>(location);
+
     let pixel_center = camera.pixel00_loc + (f32(location.x) * camera.pixel_delta_u) + (f32(location.y) * camera.pixel_delta_v);
     let ray_direction = pixel_center - camera.camera_center;
-    var color = vec4<f32>(nrand(), 0., 0., 1.);
+
+    var color = vec4<f32>(0., 0., 0., 1.);
     for (var i: i32 = 0; i < params.samples; i++) {
-        let ray = Ray(camera.camera_center, ray_direction + pixel_sample_square());
-        color += ray_color(ray);
+        let ray = Ray(camera.camera_center, ray_direction + pixel_sample_square(&seed));
+        color += ray_color(ray, &seed) / f32(params.samples);
     }
-    color /= f32(params.samples);
-
-
 
     storageBarrier();
 
     textureStore(texture, location, color);
 }
 
-fn pixel_sample_square() -> vec3<f32> {
-    let px = -0.5 + nrand();
-    let py = -0.5 + nrand();
-    return (camera.pixel_delta_u * px) + (camera.pixel_delta_v * py);
+fn pixel_sample_square(r: ptr<function,vec2<i32>>) -> vec3<f32> {
+    return (camera.pixel_delta_u * nrand(r)) + (camera.pixel_delta_v * nrand(r));
 }
 
 fn test_hit_spheres(ray: Ray) -> HitRecord {
@@ -193,7 +200,7 @@ fn test_hit_spheres(ray: Ray) -> HitRecord {
 
     for (var i: i32 = 0; i < params.sphere_count / 2; i++) {
         let sphere = spheres[i];
-        let interval = vec2<f32>(0.01, closest_hit.t);
+        let interval = vec2<f32>(0.05, closest_hit.t);
         let hit = hit_sphere(sphere, ray, interval);
 
         if hit.hit && hit.t < closest_hit.t {
@@ -204,7 +211,7 @@ fn test_hit_spheres(ray: Ray) -> HitRecord {
     return closest_hit;
 }
 
-fn ray_color(ray: Ray) -> vec4<f32> {
+fn ray_color(ray: Ray, r: ptr<function,vec2<i32>>) -> vec4<f32> {
 
     var ray = ray;
 
@@ -219,14 +226,14 @@ fn ray_color(ray: Ray) -> vec4<f32> {
         if closest_hit.hit {
             hit_colours[hits] = closest_hit.color;
 
-            let direction = random_on_hemisphere(closest_hit.normal);
+            let direction = random_on_hemisphere(closest_hit.normal, r);
             ray = Ray(closest_hit.point, direction);
             hits += 1;
             has_hit = true;
         } else {
 
             if hits > 0 {
-                hit_colours[hits] = bg_color;
+                hit_colours[hits] = vec4<f32>(0., 0., 0., 1.);
                 hits += 1;
             }
 
@@ -241,6 +248,8 @@ fn ray_color(ray: Ray) -> vec4<f32> {
             color += hit_colours[i]; /// pow(2., f32(i + 1));
         }
         return color / f32(hits);
+
+        // return hit_colours[hits - 1];
     } else {
         return bg_color;
     }
