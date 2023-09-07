@@ -96,6 +96,21 @@ fn ui_system(
                 ui.label(format!("{}", params.depth));
             });
 
+            ui.horizontal(|ui| {
+                ui.label("Render Mode");
+                ui.add(egui::Slider::new(&mut params.render_mode, 0..=3).show_value(false));
+
+                ui.label(match params.render_mode {
+                    0 => "Normals",
+                    1 => "Average",
+                    2 => "Blended",
+                    3 => "Last Hit",
+                    _ => "default",
+                });
+            });
+
+            // todo: toggle between one shot and continuous
+
             // ui.horizontal(|ui| {
             //     ui.label("step size");
             //     ui.add_enabled(

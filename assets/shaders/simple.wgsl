@@ -12,6 +12,7 @@ struct Params {
     seed: i32,
     samples: i32,
     depth: i32,
+    render_mode: i32,
 }
 
 @group(0) @binding(1)
@@ -39,12 +40,7 @@ struct Sphere {
 }
 
 @group(0) @binding(3) 
-var<uniform> spheres: array<Sphere, 10>;
-
-
-// @group(0) @binding(4)
-// var<storage> noise: array<vec4<f32>>;
-
+var<uniform> spheres: array<Sphere, 5>;
 
 // https://www.shadertoy.com/view/4djSRW
 fn nrand(r: ptr<function,vec2<i32>>) -> f32 {
@@ -57,8 +53,10 @@ fn nrand(r: ptr<function,vec2<i32>>) -> f32 {
     return (fract((p3.x + p3.y) * p3.z) * 2.) - 0.5;
 }
 
-
 // todo: fix storage buffers or storage textures for web 
+
+// @group(0) @binding(4)
+// var<storage> noise: array<vec4<f32>>;
 
 // fn nrand(r: ptr<function,vec2<i32>>) -> f32 {
 //     // let pixel = textureLoad(noise_texture, *r);
@@ -83,12 +81,12 @@ fn nrand_vec3(r: ptr<function,vec2<i32>>) -> vec3<f32> {
 fn rand_in_unit_sphere(r: ptr<function,vec2<i32>>) -> vec3<f32> {
 
     // bail out after 100 reps
-    // for (var i = 0; i < 100; i++) {
-    //     let v = nrand_vec3(r);
-    //     if v.x * v.x + v.y * v.y + v.z * v.z < 1.001 {
-    //         return v;
-    //     }
-    // }
+    for (var i = 0; i < 100; i++) {
+        let v = nrand_vec3(r);
+        if v.x * v.x + v.y * v.y + v.z * v.z < 1.001 {
+            return v;
+        }
+    }
 
     return nrand_vec3(r);
 }
@@ -157,9 +155,13 @@ fn hit_sphere(sphere: Sphere, ray: Ray, interval: vec2<f32>) -> HitRecord {
         normal = normal * -1.;
     }
 
-    // let color = vec4<f32>(0.5 * (normal + 1.), 1.);
-    // let color = vec4<f32>(0.5, 0.5, 0.5, 1.);
-    let color = sphere.color;
+    var color: vec4<f32>;
+
+    if params.render_mode == 0 {
+        color = vec4<f32>(0.5 * (normal + 1.), 1.);
+    } else {
+        color = sphere.color;
+    }
 
     return HitRecord(point, normal, color, root, front_face, true);
 }
@@ -248,12 +250,20 @@ fn ray_color(ray: Ray, r: ptr<function,vec2<i32>>) -> vec4<f32> {
     var color = vec4<f32>(0., 0., 0., 1.);
 
     if has_hit {
-        for (var i: i32 = 0; i < hits; i++) {
-            color += hit_colours[i]; /// pow(2., f32(i + 1));
-        }
-        return color / f32(hits);
 
-        // return hit_colours[hits - 1];
+        if params.render_mode == 2 { // blended
+            for (var i: i32 = 0; i < hits; i++) {
+                color += hit_colours[i] / pow(2., f32(i + 1));
+            }
+            return color / f32(hits);
+        } else if params.render_mode == 3 { // last hit
+            return hit_colours[hits - 1];
+        } else { // normals/averaged
+            for (var i: i32 = 0; i < hits; i++) {
+                color += hit_colours[i];
+            }
+            return color / f32(hits);
+        }
     } else {
         return bg_color;
     }

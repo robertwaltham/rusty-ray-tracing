@@ -53,6 +53,10 @@ pub struct Params {
     pub seed: i32,
     pub samples: i32,
     pub depth: i32,
+    pub render_mode: i32,
+    pub _padding1: i32,
+    pub _padding2: i32,
+    pub _padding3: i32,
 }
 
 impl Default for Params {
@@ -66,6 +70,10 @@ impl Default for Params {
             seed: 0,
             samples: 25,
             depth: 3,
+            render_mode: 0,
+            _padding1: 0,
+            _padding2: 0,
+            _padding3: 0,
         }
     }
 }
