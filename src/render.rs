@@ -1,5 +1,4 @@
 use crate::{camera::Camera, collidables::*, AppState, INIT_WORKGROUP_SIZE, SIZE};
-use rand::prelude::*;
 
 use bevy::{
     core::Zeroable,
@@ -13,7 +12,7 @@ use bevy::{
         Extract, Render, RenderApp, RenderSet,
     },
 };
-use bytemuck::{bytes_of, cast_slice, Pod};
+use bytemuck::{bytes_of, Pod};
 use std::{borrow::Cow, collections::VecDeque};
 
 #[derive(Resource, Clone, Deref, ExtractResource, Reflect)]
@@ -21,11 +20,13 @@ pub struct RenderImage {
     pub image: Handle<Image>,
 }
 
-const NOISE_BUFFER_SIZE: u64 = 20;
-#[derive(Resource, Clone, Deref, ExtractResource)]
-pub struct NoiseBuffer {
-    pub buffer: Option<Buffer>,
-}
+// todo: storage buffers for web
+
+// const NOISE_BUFFER_SIZE: u64 = 20;
+// #[derive(Resource, Clone, Deref, ExtractResource)]
+// pub struct NoiseBuffer {
+//     pub buffer: Option<Buffer>,
+// }
 
 #[derive(Resource, Default)]
 struct RenderState {
@@ -129,8 +130,9 @@ impl Plugin for ComputeShaderPlugin {
             })
             .insert_resource(ParamsBuffer { buffer: None })
             .insert_resource(SphereBuffer { buffer: None })
-            .insert_resource(CameraBuffer { buffer: None })
-            .insert_resource(NoiseBuffer { buffer: None });
+            .insert_resource(CameraBuffer { buffer: None });
+        // todo: storage buffers for web
+        // .insert_resource(NoiseBuffer { buffer: None });
 
         let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
         render_graph.add_node("ray_trace_node", ComputeShaderNode::default());
@@ -184,6 +186,8 @@ fn reset_time(mut render_time: ResMut<RenderTime>) {
     render_time.avg_fps_10 = 0.;
     render_time._last_10.clear();
 }
+
+// todo: separate modes between one shot and continuous
 
 // fn update_params(mut params: ResMut<Params>, mut next_state: ResMut<NextState<AppState>>) {
 // params.x += params.size;
@@ -262,16 +266,17 @@ impl FromWorld for ComputeShaderPipeline {
                             },
                             count: None,
                         },
-                        BindGroupLayoutEntry {
-                            binding: 4,
-                            visibility: ShaderStages::COMPUTE,
-                            ty: BindingType::Buffer {
-                                ty: BufferBindingType::Storage { read_only: true },
-                                has_dynamic_offset: false,
-                                min_binding_size: BufferSize::new(NOISE_BUFFER_SIZE * 4),
-                            },
-                            count: None,
-                        },
+                        // todo: storage textures for web
+                        // BindGroupLayoutEntry {
+                        //     binding: 4,
+                        //     visibility: ShaderStages::COMPUTE,
+                        //     ty: BindingType::Buffer {
+                        //         ty: BufferBindingType::Storage { read_only: true },
+                        //         has_dynamic_offset: false,
+                        //         min_binding_size: BufferSize::new(NOISE_BUFFER_SIZE * 4),
+                        //     },
+                        //     count: None,
+                        // },
                     ],
                 });
         let shader = world.resource::<AssetServer>().load("shaders/simple.wgsl");
@@ -310,7 +315,7 @@ fn queue_bind_group(
     params_buffer: Res<ParamsBuffer>,
     camera_buffer: Res<CameraBuffer>,
     spheres_buffer: Res<SphereBuffer>,
-    noise_buffer: Res<NoiseBuffer>,
+    // noise_buffer: Res<NoiseBuffer>,
 ) {
     let output_view = &gpu_images[&output_image.image];
 
@@ -334,10 +339,12 @@ fn queue_bind_group(
                 binding: 3,
                 resource: spheres_buffer.buffer.as_ref().unwrap().as_entire_binding(),
             },
-            BindGroupEntry {
-                binding: 4,
-                resource: noise_buffer.buffer.as_ref().unwrap().as_entire_binding(),
-            },
+            // todo: storage textures for web
+
+            // BindGroupEntry {
+            //     binding: 4,
+            //     resource: noise_buffer.buffer.as_ref().unwrap().as_entire_binding(),
+            // },
         ],
     });
     commands.insert_resource(RenderImageBindGroup(bind_group));
@@ -444,7 +451,7 @@ fn prepare_params(
     mut params_buffer: ResMut<ParamsBuffer>,
     mut camera_buffer: ResMut<CameraBuffer>,
     mut spheres_buffer: ResMut<SphereBuffer>,
-    mut noise_buffer: ResMut<NoiseBuffer>,
+    // mut noise_buffer: ResMut<NoiseBuffer>,
     render_queue: Res<RenderQueue>,
     render_device: Res<RenderDevice>,
 ) {
@@ -475,24 +482,26 @@ fn prepare_params(
         }));
     }
 
-    if noise_buffer.buffer.is_none() {
-        noise_buffer.buffer = Some(render_device.create_buffer(&BufferDescriptor {
-            label: Some("noise buffer"),
-            size: NOISE_BUFFER_SIZE * 4,
-            usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        }));
-    }
+    // todo: storage buffers for web
 
-    let mut random_number: Vec<f32> = Vec::new();
-    for _ in 0..NOISE_BUFFER_SIZE {
-        random_number.push(random());
-    }
-    render_queue.write_buffer(
-        &noise_buffer.buffer.as_ref().unwrap(),
-        0,
-        cast_slice(random_number.as_slice()),
-    );
+    // if noise_buffer.buffer.is_none() {
+    //     noise_buffer.buffer = Some(render_device.create_buffer(&BufferDescriptor {
+    //         label: Some("noise buffer"),
+    //         size: NOISE_BUFFER_SIZE * 4,
+    //         usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
+    //         mapped_at_creation: false,
+    //     }));
+    // }
+
+    // let mut random_number: Vec<f32> = Vec::new();
+    // for _ in 0..NOISE_BUFFER_SIZE {
+    //     random_number.push(random());
+    // }
+    // render_queue.write_buffer(
+    //     &noise_buffer.buffer.as_ref().unwrap(),
+    //     0,
+    //     cast_slice(random_number.as_slice()),
+    // );
 
     render_queue.write_buffer(
         &params_buffer.buffer.as_ref().unwrap(),

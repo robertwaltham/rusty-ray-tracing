@@ -42,34 +42,36 @@ struct Sphere {
 var<uniform> spheres: array<Sphere, 10>;
 
 
-@group(0) @binding(4)
-var<storage> noise: array<vec4<f32>>;
+// @group(0) @binding(4)
+// var<storage> noise: array<vec4<f32>>;
 
 
 // https://www.shadertoy.com/view/4djSRW
-// fn nrand(r: ptr<function,vec2<i32>>) -> f32 {
-//     (*r).x = ((*r).x + 1) % 512;
-//     if (*r).x == 0 {
-//         (*r).y = ((*r).y + 1) % 512;
-//     }
-//     var p3 = fract(vec3<f32>((*r).xyx) * .1031);
-//     p3 += dot(p3, p3.yzx + 33.33);
-//     return (fract((p3.x + p3.y) * p3.z) * 2.) - 0.5;
-// }
-
-
 fn nrand(r: ptr<function,vec2<i32>>) -> f32 {
-    // let pixel = textureLoad(noise_texture, *r);
-
-    let pixel = noise[0];
-
     (*r).x = ((*r).x + 1) % 512;
     if (*r).x == 0 {
         (*r).y = ((*r).y + 1) % 512;
     }
-
-    return ((pixel.x + pixel.y + pixel.z) / 1.5) - 1.;
+    var p3 = fract(vec3<f32>((*r).xyx) * .1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return (fract((p3.x + p3.y) * p3.z) * 2.) - 0.5;
 }
+
+
+// todo: fix storage buffers or storage textures for web 
+
+// fn nrand(r: ptr<function,vec2<i32>>) -> f32 {
+//     // let pixel = textureLoad(noise_texture, *r);
+
+//     let pixel = noise[0];
+
+//     (*r).x = ((*r).x + 1) % 512;
+//     if (*r).x == 0 {
+//         (*r).y = ((*r).y + 1) % 512;
+//     }
+
+//     return ((pixel.x + pixel.y + pixel.z) / 1.5) - 1.;
+// }
 
 fn nrand_vec3(r: ptr<function,vec2<i32>>) -> vec3<f32> {
     let x = nrand(r);
