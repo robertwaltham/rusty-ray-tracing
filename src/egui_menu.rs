@@ -135,7 +135,15 @@ fn ui_system(
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.label("count");
-                    ui.add(egui::Slider::new(&mut params.spheres, 1..=10));
+                    ui.add(
+                        egui::Slider::from_get_set(1.0..=4.0, |v| {
+                            if let Some(v) = v {
+                                params.spheres = v as i32 * 2;
+                            }
+                            (params.spheres / 2) as f64
+                        })
+                        .integer(),
+                    );
                 });
 
                 for i in 0..params.spheres / 2 {
