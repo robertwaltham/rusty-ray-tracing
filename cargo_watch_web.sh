@@ -1,0 +1,1 @@
+cargo watch -x 'run --target wasm32-unknown-unknown --release'
