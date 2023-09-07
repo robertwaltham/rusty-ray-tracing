@@ -1,4 +1,5 @@
 use crate::{camera::Camera, collidables::*, AppState, INIT_WORKGROUP_SIZE, SIZE};
+use rand::prelude::*;
 
 use bevy::{
     core::Zeroable,
@@ -12,7 +13,7 @@ use bevy::{
         Extract, Render, RenderApp, RenderSet,
     },
 };
-use bytemuck::{bytes_of, Pod};
+use bytemuck::{bytes_of, cast_slice, Pod};
 use std::{borrow::Cow, collections::VecDeque};
 
 #[derive(Resource, Clone, Deref, ExtractResource, Reflect)]
@@ -20,9 +21,10 @@ pub struct RenderImage {
     pub image: Handle<Image>,
 }
 
-#[derive(Resource, Clone, Deref, ExtractResource, Reflect)]
-pub struct NoiseImage {
-    pub image: Handle<Image>,
+const NOISE_BUFFER_SIZE: u64 = 20;
+#[derive(Resource, Clone, Deref, ExtractResource)]
+pub struct NoiseBuffer {
+    pub buffer: Option<Buffer>,
 }
 
 #[derive(Resource, Default)]
@@ -94,7 +96,6 @@ impl Plugin for ComputeShaderPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
             ExtractResourcePlugin::<RenderImage>::default(),
-            ExtractResourcePlugin::<NoiseImage>::default(),
             ExtractResourcePlugin::<Params>::default(),
             ExtractResourcePlugin::<Camera>::default(),
             ExtractResourcePlugin::<Spheres>::default(),
@@ -128,14 +129,15 @@ impl Plugin for ComputeShaderPlugin {
             })
             .insert_resource(ParamsBuffer { buffer: None })
             .insert_resource(SphereBuffer { buffer: None })
-            .insert_resource(CameraBuffer { buffer: None });
+            .insert_resource(CameraBuffer { buffer: None })
+            .insert_resource(NoiseBuffer { buffer: None });
 
         let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
         render_graph.add_node("ray_trace_node", ComputeShaderNode::default());
         render_graph.add_node_edge(
             "ray_trace_node",
             bevy::render::main_graph::node::CAMERA_DRIVER,
-        )
+        );
     }
 
     fn finish(&self, app: &mut App) {
@@ -263,10 +265,10 @@ impl FromWorld for ComputeShaderPipeline {
                         BindGroupLayoutEntry {
                             binding: 4,
                             visibility: ShaderStages::COMPUTE,
-                            ty: BindingType::StorageTexture {
-                                access: StorageTextureAccess::ReadOnly,
-                                format: TextureFormat::Rgba8Unorm,
-                                view_dimension: TextureViewDimension::D2,
+                            ty: BindingType::Buffer {
+                                ty: BufferBindingType::Storage { read_only: true },
+                                has_dynamic_offset: false,
+                                min_binding_size: BufferSize::new(NOISE_BUFFER_SIZE * 4),
                             },
                             count: None,
                         },
@@ -304,14 +306,13 @@ fn queue_bind_group(
     pipeline: Res<ComputeShaderPipeline>,
     gpu_images: Res<RenderAssets<Image>>,
     output_image: Res<RenderImage>,
-    noise_image: Res<NoiseImage>,
     render_device: Res<RenderDevice>,
     params_buffer: Res<ParamsBuffer>,
     camera_buffer: Res<CameraBuffer>,
     spheres_buffer: Res<SphereBuffer>,
+    noise_buffer: Res<NoiseBuffer>,
 ) {
     let output_view = &gpu_images[&output_image.image];
-    let noise_view = &gpu_images[&noise_image.image];
 
     let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
         label: None,
@@ -335,7 +336,7 @@ fn queue_bind_group(
             },
             BindGroupEntry {
                 binding: 4,
-                resource: BindingResource::TextureView(&noise_view.texture_view),
+                resource: noise_buffer.buffer.as_ref().unwrap().as_entire_binding(),
             },
         ],
     });
@@ -436,7 +437,6 @@ impl render_graph::Node for ComputeShaderNode {
     }
 }
 
-// write the extracted time into the corresponding uniform buffer
 fn prepare_params(
     params: Res<Params>,
     camera: Res<Camera>,
@@ -444,6 +444,7 @@ fn prepare_params(
     mut params_buffer: ResMut<ParamsBuffer>,
     mut camera_buffer: ResMut<CameraBuffer>,
     mut spheres_buffer: ResMut<SphereBuffer>,
+    mut noise_buffer: ResMut<NoiseBuffer>,
     render_queue: Res<RenderQueue>,
     render_device: Res<RenderDevice>,
 ) {
@@ -473,6 +474,25 @@ fn prepare_params(
             mapped_at_creation: false,
         }));
     }
+
+    if noise_buffer.buffer.is_none() {
+        noise_buffer.buffer = Some(render_device.create_buffer(&BufferDescriptor {
+            label: Some("noise buffer"),
+            size: NOISE_BUFFER_SIZE * 4,
+            usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        }));
+    }
+
+    let mut random_number: Vec<f32> = Vec::new();
+    for _ in 0..NOISE_BUFFER_SIZE {
+        random_number.push(random());
+    }
+    render_queue.write_buffer(
+        &noise_buffer.buffer.as_ref().unwrap(),
+        0,
+        cast_slice(random_number.as_slice()),
+    );
 
     render_queue.write_buffer(
         &params_buffer.buffer.as_ref().unwrap(),

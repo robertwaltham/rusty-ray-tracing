@@ -43,7 +43,7 @@ var<uniform> spheres: array<Sphere, 10>;
 
 
 @group(0) @binding(4)
-var noise_texture: texture_storage_2d<rgba8unorm, read>;
+var<storage> noise: array<vec4<f32>>;
 
 
 // https://www.shadertoy.com/view/4djSRW
@@ -59,7 +59,9 @@ var noise_texture: texture_storage_2d<rgba8unorm, read>;
 
 
 fn nrand(r: ptr<function,vec2<i32>>) -> f32 {
-    let pixel = textureLoad(noise_texture, *r);
+    // let pixel = textureLoad(noise_texture, *r);
+
+    let pixel = noise[0];
 
     (*r).x = ((*r).x + 1) % 512;
     if (*r).x == 0 {
